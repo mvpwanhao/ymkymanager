@@ -37,10 +37,26 @@ def _read_toml_passwords() -> dict[str, str]:
 
 
 def _read_env_passwords() -> dict[str, str]:
+    s = get_settings()
     return {
-        "admin": (os.environ.get("YMKY_PASSWORD_ADMIN") or os.environ.get("YMKY_ADMIN") or "").strip(),
-        "reporter": (os.environ.get("YMKY_PASSWORD_REPORTER") or os.environ.get("YMKY_REPORTER") or "").strip(),
-        "viewer": (os.environ.get("YMKY_PASSWORD_VIEWER") or os.environ.get("YMKY_VIEWER") or "").strip(),
+        "admin": (
+            s.password_admin
+            or os.environ.get("YMKY_PASSWORD_ADMIN")
+            or os.environ.get("YMKY_ADMIN")
+            or ""
+        ).strip(),
+        "reporter": (
+            s.password_reporter
+            or os.environ.get("YMKY_PASSWORD_REPORTER")
+            or os.environ.get("YMKY_REPORTER")
+            or ""
+        ).strip(),
+        "viewer": (
+            s.password_viewer
+            or os.environ.get("YMKY_PASSWORD_VIEWER")
+            or os.environ.get("YMKY_VIEWER")
+            or ""
+        ).strip(),
     }
 
 

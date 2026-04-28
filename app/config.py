@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     trusted_hosts: str = Field(default="", validation_alias="YMKY_TRUSTED_HOSTS")
     # 可选；暴露于 /health
     app_version: str = Field(default="", validation_alias="YMKY_APP_VERSION")
+    # 可选：三类角色密码（来自 .env）
+    password_admin: str = Field(default="", validation_alias="YMKY_PASSWORD_ADMIN")
+    password_reporter: str = Field(default="", validation_alias="YMKY_PASSWORD_REPORTER")
+    password_viewer: str = Field(default="", validation_alias="YMKY_PASSWORD_VIEWER")
 
     @field_validator("ymky_env", mode="before")
     @classmethod
@@ -129,4 +133,11 @@ def get_settings() -> Settings:
     s = Settings()
     if s.database_url.strip():
         os.environ["DATABASE_URL"] = s.database_url.strip()
+    # Export password env for auth module paths that read os.environ directly.
+    if s.password_admin.strip():
+        os.environ["YMKY_PASSWORD_ADMIN"] = s.password_admin.strip()
+    if s.password_reporter.strip():
+        os.environ["YMKY_PASSWORD_REPORTER"] = s.password_reporter.strip()
+    if s.password_viewer.strip():
+        os.environ["YMKY_PASSWORD_VIEWER"] = s.password_viewer.strip()
     return s
