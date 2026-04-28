@@ -1,14 +1,11 @@
 #!/usr/bin/env pwsh
-# ???????? Docker??
-# 1) ?? git push
-# 2) SSH ?????? scripts/server_git_pull_deploy.sh
+# Optional: git push -> SSH remote and run scripts/server_git_pull_deploy.sh (no Docker)
 #
-# ???
-#   .\scripts\deploy_via_git.ps1 -SshTarget wanhao@192.168.14.222 -RemoteCd "/home/wanhao/ymky_manager"
-#   .\scripts\deploy_via_git.ps1 -SshTarget wanhao@192.168.14.222 -RemoteCd "/home/wanhao/ymky_manager" -NoPush
+#   .\scripts\deploy_via_git.ps1 -SshTarget wanhao@192.168.x.x -RemoteCd "/home/wanhao/ymky_manager"
+#   ... -GitRemote github -Branch main   # or -NoPush
 
 param(
-    [Parameter(Mandatory = $true, HelpMessage = "SSH??? wanhao@192.168.14.222")]
+    [Parameter(Mandatory = $true, HelpMessage = "SSH login e.g. wanhao@192.168.x.x")]
     [string]$SshTarget,
 
     [string]$RemoteCd = "/home/wanhao/ymky_manager",
