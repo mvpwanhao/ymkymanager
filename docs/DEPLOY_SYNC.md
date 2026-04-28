@@ -23,6 +23,8 @@
 
 ## 服务器一次性准备
 
+> **终端说明：** 自本节起，`apt`、`git clone`、`nano`、`systemctl`、`crontab` 等均假设你已 **SSH 接入 Ubuntu**（如 `ssh wanhao@<主机 IP>`），在远端终端里执行。**Windows PowerShell / 编辑器**仅在「本机日常」「手动触发部署」等小节出现。
+
 ### 0）系统依赖（Ubuntu）
 
 ```bash
