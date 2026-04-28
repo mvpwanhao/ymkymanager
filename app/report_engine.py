@@ -28,6 +28,22 @@ def set_cell_integer(ws, row, col, value):
     cell.number_format = "0"
 
 
+def _merge_notes(series: pd.Series) -> str:
+    if series is None or series.empty:
+        return ""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in series.tolist():
+        s = str(raw or "").strip()
+        if not s or s.lower() == "nan":
+            continue
+        if s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+    return "；".join(out)
+
+
 def generate_sjcl_report(target_date) -> tuple[str | None, str]:
     s = get_settings()
     TEMPLATE_SJCL = s.sjcl_template
@@ -67,6 +83,11 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
 
             y_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
             set_cell_integer(ws, row, 5, y_val)
+
+            # 备注列（J）：写入该矿在目标日期的备注；多条去空去重后用全角分号拼接。
+            mine_day_df = mine_df[mine_df["生产日期"] == target_dt]
+            note_text = _merge_notes(mine_day_df["备注"]) if "备注" in mine_day_df.columns else ""
+            ws.cell(row=row, column=10, value=note_text)
 
         for col in [4, 5]:
             col_let = get_column_letter(col)
