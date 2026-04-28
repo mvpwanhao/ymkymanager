@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# ????????? Docker??
-# git pull -> (requirements.txt ??? pip install) -> systemctl restart ymky
+# No-Docker deploy: git pull -> pip if requirements changed -> systemctl restart
 #
-# crontab ???
-#   */5 * * * * /home/wanhao/ymky_manager/scripts/server_git_pull_deploy.sh >> /home/wanhao/ymky_manager/logs/pull.log 2>&1
+# Cron example:
+#   */5 * * * * /home/wanhao/ymky_manager/scripts/server_git_pull_deploy.sh >> .../logs/pull.log 2>&1
 #
-# ???????
+# Env (optional):
 #   GIT_REMOTE=origin
 #   DEPLOY_BRANCH=main
 #   SERVICE_NAME=ymky

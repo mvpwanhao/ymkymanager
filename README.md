@@ -72,7 +72,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8080
 
 Docker 部署（Ubuntu 小主机、`docker compose`、局域网访问）见 [docs/DOCKER.md](docs/DOCKER.md)。
 
-本地调试通过后**同步到小主机（无 Docker）**：见 [docs/DEPLOY_SYNC.md](docs/DEPLOY_SYNC.md)（`git push` + 服务器 `git pull` + `systemctl restart ymky`）。
+本地调试通过后**同步到小主机（无 Docker）**：见 [docs/DEPLOY_SYNC.md](docs/DEPLOY_SYNC.md)（推送到 [GitHub](https://github.com/mvpwanhao/ymkymanager) 后，服务器 `git pull` + `systemctl restart ymky`）。
 
 ## 功能对照（相对旧版 Streamlit）
 
