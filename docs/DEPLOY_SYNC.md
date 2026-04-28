@@ -53,6 +53,35 @@ git clone git@github.com:mvpwanhao/ymkymanager.git /home/wanhao/ymky_manager
 
 （远端名默认 `origin`，分支默认 `main`，与下文脚本一致。）
 
+### 境内网络：克隆 / `git pull` 访问 GitHub 不畅时
+
+**推荐（长期可用）：在国内平台自建同名镜像，服务器只连镜像**
+
+GitHub 在部分网络环境下会超时或被阻断；单靠「镜像站前缀」会因域名停运而失效。更稳妥的是在 **能访问 GitHub 的机器上**推送一份到 **[Gitee](https://gitee.com)**、[GitCode](https://gitcode.net) 等平台，再在 Ubuntu 上对 **HTTPS 克隆地址**使用该仓库：
+
+```bash
+# 示例：把此处换成你在 Gitee 上的仓库 HTTPS 地址
+git clone https://gitee.com/<你的用户名>/<仓库名>.git /home/wanhao/ymky_manager
+```
+
+Gitee「从 GitHub 导入仓库」或通过 `git remote add gitee`、`git push gitee main` 保持同步皆可。服务器的 `origin` 若指向镜像站，`cron`/`git pull` 也会跟着走镜像。
+
+**备选：公开的 Git HTTPS 加速前缀（不保长期有效，先试再采用）**
+
+部分公益代理会在 URL 前加一层「镜像主机名 + 原始 GitHub HTTPS 地址」。**域名可能变更或限流**，先试 `git ls-remote <URL>`，能再 `git clone`。示例：
+
+```bash
+git clone https://mirror.ghproxy.com/https://github.com/mvpwanhao/ymkymanager.git /home/wanhao/ymky_manager
+```
+
+若该域名不可用，请搜索可用的 **GitHub HTTPS 代理 / clone 加速** 或使用上方 **Gitee 镜像**。
+
+克隆成功后，与本节后续步骤完全相同（venv、`.env`、`uvicorn`、`systemd`）。
+
+**备选：局域网传递**
+
+若在 Windows 上已有一份完整克隆，也可用 `scp -r`、`rsync`、`git bundle` 等方式把整个目录拷贝到 Ubuntu，再在目标目录执行 `python3 -m venv .venv` 与 `pip install`，无需当期网络访问 GitHub。
+
 ### 2）环境与数据目录
 
 ```bash
