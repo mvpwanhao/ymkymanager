@@ -317,6 +317,13 @@ def create_app() -> FastAPI:
             request.session["login_temp_role"] = role
         return RedirectResponse("/login", status_code=303)
 
+    @app.get("/login/reset")
+    def login_reset(request: Request) -> RedirectResponse:
+        # Clear temporary role/password step so user can re-pick identity.
+        request.session["login_temp_role"] = None
+        request.session["login_error"] = None
+        return RedirectResponse("/login", status_code=303)
+
     @app.post("/login/verify")
     def login_verify(
         request: Request,
