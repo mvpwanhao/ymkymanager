@@ -784,11 +784,9 @@ def create_app() -> FastAPI:
         if not out or not os.path.isfile(out):
             request.session["flash"] = msg or "生成失败"
             return RedirectResponse("/go/reports", status_code=303)
-        return FileResponse(
-            out,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename=os.path.basename(out),
-        )
+        request.session["flash"] = msg or "已生成，开始下载"
+        q = urlencode({"f": os.path.basename(out)})
+        return RedirectResponse(f"/reports/download?{q}", status_code=303)
 
     @app.post("/reports/nybb", response_model=None)
     def report_nybb(
@@ -801,11 +799,9 @@ def create_app() -> FastAPI:
         if not out or not os.path.isfile(out):
             request.session["flash"] = msg or "生成失败"
             return RedirectResponse("/go/reports", status_code=303)
-        return FileResponse(
-            out,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename=os.path.basename(out),
-        )
+        request.session["flash"] = msg or "已生成，开始下载"
+        q = urlencode({"f": os.path.basename(out)})
+        return RedirectResponse(f"/reports/download?{q}", status_code=303)
 
     @app.get("/reports/download", response_model=None)
     def report_download(
