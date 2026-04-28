@@ -1,0 +1,113 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}数据可视化 · 云煤矿业{% endblock %}
+{% block extra_js %}
+{{ super() }}
+<script src="/static/plotly-theme.js?v={{ asset_version }}" defer></script>
+{% endblock %}
+{% block content %}
+{% if dash and dash.get('empty') %}
+<div class="card">
+  <h1>数据可视化</h1>
+  <div class="empty-state">
+    <div class="em-icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg>
+    </div>
+    <p>{{ dash.get('message', '暂无可视化数据') }}</p>
+  </div>
+</div>
+{% else %}
+
+{% if dash and dash.kpis %}
+<div class="kpi-grid">
+  {% for k in dash.kpis %}
+  <div class="kpi-card">
+    <div class="kpi-label">{{ k.label }}</div>
+    <div class="kpi-value">{{ "%.2f"|format(k.value) }}<span class="kpi-unit">{{ k.unit }}</span></div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h1>各矿产销量汇总</h1>
+  <p class="muted">{{ dash.caption if dash and dash.caption is defined else '' }}</p>
+  <div class="table-wrap">{{ (dash.summary_html or '') | safe }}</div>
+</div>
+
+<div class="card">
+  <h2>统计图表</h2>
+  <div class="row" style="justify-content:space-between;align-items:flex-end;gap:0.85rem;flex-wrap:wrap;margin-bottom:0.6rem;">
+    <div class="pill-tabs" role="tablist" aria-label="统计区间">
+      <a href="/go/visual?period=year"  {% if period == 'year'  %}aria-current="page"{% endif %}>年度</a>
+      <a href="/go/visual?period=month" {% if period == 'month' %}aria-current="page"{% endif %}>月度</a>
+      <a href="/go/visual?period=custom" {% if period == 'custom' %}aria-current="page"{% endif %}>自定义</a>
+    </div>
+    <span class="muted">{{ dash.period_caption if dash and dash.period_caption is defined else '' }}</span>
+  </div>
+
+  {% if period == 'year' and dash and dash.year_options %}
+  <form method="get" action="/" class="form-grid cols-2" style="align-items:end;margin:0 0 0.75rem;">
+    <input type="hidden" name="period" value="year" />
+    <div>
+      <label for="stat_year">选择统计年</label>
+      <select id="stat_year" name="stat_year" onchange="this.form.submit()">
+        {% for o in dash.year_options %}
+        <option value="{{ o.value }}" {% if o.value == dash.selected_year %}selected{% endif %}>{{ o.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <noscript>
+      <div class="full-row"><button type="submit" class="btn btn-primary inline">查看</button></div>
+    </noscript>
+  </form>
+  {% endif %}
+
+  {% if period == 'month' and dash and dash.month_options %}
+  <form method="get" action="/" class="form-grid cols-2" style="align-items:end;margin:0 0 0.75rem;">
+    <input type="hidden" name="period" value="month" />
+    <div>
+      <label for="stat_month">选择统计月</label>
+      <select id="stat_month" name="stat_month" onchange="this.form.submit()">
+        {% for o in dash.month_options %}
+        <option value="{{ o.value }}" {% if o.value == dash.selected_month %}selected{% endif %}>{{ o.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <noscript>
+      <div class="full-row"><button type="submit" class="btn btn-primary inline">查看</button></div>
+    </noscript>
+  </form>
+  {% endif %}
+
+  {% if period == 'custom' %}
+  <form method="get" action="/" class="form-grid cols-2" style="align-items:end;margin:0 0 0.75rem;">
+    <input type="hidden" name="period" value="custom" />
+    <div>
+      <label for="cstart">开始日期</label>
+      <input type="date" id="cstart" name="start" value="{{ c_start or '' }}" />
+    </div>
+    <div>
+      <label for="cend">结束日期</label>
+      <input type="date" id="cend" name="end" value="{{ c_end or '' }}" />
+    </div>
+    <div class="full-row">
+      <button type="submit" class="btn btn-primary inline">应用自定义区间</button>
+    </div>
+  </form>
+  {% endif %}
+
+  <h3>各矿产量占比</h3>
+  <div class="plot-wrap">{{ (dash.pie_html or '') | safe }}</div>
+  <h3>各矿产量柱状</h3>
+  <div class="plot-wrap">{{ (dash.bar_html or '') | safe }}</div>
+  <h3>日产量趋势</h3>
+  <div class="plot-wrap plot-trend">{{ (dash.trend_html or '') | safe }}</div>
+</div>
+{% endif %}
+{% endblock %}

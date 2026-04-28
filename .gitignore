@@ -1,0 +1,93 @@
+# =============================================================================
+# 云煤矿业产销量管理系统 — Git 忽略规则
+# =============================================================================
+
+# ── 1. 机密 / 凭据（绝对不能进仓库）─────────────────────────────────────────
+# .env：含 YMKY_SECRET_KEY、可能的 DATABASE_URL、SERVERCHAN_SENDKEY 等
+.env
+.env.local
+.env.*.local
+
+# 角色密码哈希、登录会话 token
+data/runtime/
+data/runtime/**
+
+# 数据库 SQL 备份（含真实业务数据）
+database_backup/
+database_backup/**
+
+
+# ── 2. 真实业务数据（保留模板，忽略实际数据）────────────────────────────────
+# 业务原始数据（应用首次启动会自动创建空表，不需要随仓库分发）
+data/actual_production.xlsx
+data/energy_reporting.xlsx
+
+# 导出报表（运行时由系统生成）
+data/exports/
+data/exports/**
+
+# 注意：data/sjcl.xlsx、data/nybb.xlsx 是报表模板，属于项目组成部分，
+# 故 *不* 在此处忽略，会被纳入版本控制。
+
+
+# ── 3. Python 运行时缓存与构建产物 ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+
+# ── 4. 虚拟环境 ────────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+
+# ── 5. 本地调试 / 服务器进程产生的日志 ─────────────────────────────────────
+_uvicorn.log
+_uvicorn.err
+_uv_out.log
+_uv_err.log
+_dash.html
+*.log
+logs/
+
+
+# ── 6. IDE / 编辑器 ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+
+# ── 7. 操作系统临时文件 ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+ehthumbs.db
+
+
+# ── 8. Jupyter / 临时脚本 ──────────────────────────────────────────────────
+.ipynb_checkpoints/
+_tmp_*.py
+*.bak
+
+
+# ── 9. Git 离线备份产物（应放在仓库外，但万一在仓库内做了，也别误提交）────
+*.bundle

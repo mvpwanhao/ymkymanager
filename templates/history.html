@@ -1,0 +1,29 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}历史记录 · 云煤矿业{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="row" style="justify-content:space-between;align-items:center;gap:0.6rem;">
+    <h1 style="margin:0;">历史记录</h1>
+    {% if table_html %}
+    <a class="btn btn-secondary btn-sm" href="/export/history">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+      导出 CSV
+    </a>
+    {% endif %}
+  </div>
+  {% if table_html %}
+  <p class="muted" style="margin-top:0.4rem;">表格可横向滑动查看，导出的 CSV 可直接用 Excel 打开。</p>
+  <div class="table-wrap" style="margin-top:0.7rem;">{{ table_html | safe }}</div>
+  {% else %}
+  <div class="empty-state">
+    <p>暂无记录</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+# Docker 部署（局域网 / 小主机）
+
+在 **Ubuntu Server**（或任意已装 Docker 的主机）上，将本目录作为项目根，`data/`、`runtime` 等与单机运行一致落在卷里。
+
+若你最终选择 **无 Docker 直部署**，见 [DEPLOY_SYNC.md](./DEPLOY_SYNC.md)（本机 `git push`，服务器自动 `pull + restart`）。
+
+## 1. 小主机上安装 Docker
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${VERSION_CODENAME:-jammy}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker "$USER"
+# 重新登录 SSH 使用户组生效，或临时 newgrp docker
+```
+
+验证：`docker --version`、`docker compose version`
+
+## 2. 放置项目与小主机对齐
+
+任选其一：
+
+- `git clone` / `scp` / `rsync`，使服务器上路径类似 `~/ymky_manager`（根目录下有 `Dockerfile`、`app/`、`docker-compose.yml` 等）。
+- 保证存在 **`data/`**（可空）；首次上线可将 `sjcl.xlsx`、`nybb.xlsx` 放入 `data/`（报表模板）。
+
+## 3. 配置 `.env`
+
+```bash
+cd ~/ymky_manager   # 按你的实际路径
+cp .env.example .env
+nano .env
+```
+
+必填至少：
+
+- **`YMKY_SECRET_KEY`**：不少于 16 位随机字符串。
+- 若设置 **`YMKY_TRUSTED_HOSTS`**：须包含局域网访问时用到的 **主机名或 IP（不含端口）**，例如局域网用 IP 打开时：
+
+```env
+YMKY_TRUSTED_HOSTS=192.168.14.222,localhost,127.0.0.1
+```
+
+不设置 `YMKY_TRUSTED_HOSTS`（留空）时，不进行 Host 校验，一般也可在纯内网调试。
+
+按需：`DATABASE_URL`、`YMKY_ENV`、`YMKY_APP_VERSION` 等（见 README）。
+
+## 4. 构建并启动
+
+```bash
+docker compose build
+docker compose up -d
+docker compose logs -f   # 看日志；Ctrl+C 退出跟日志
+docker compose ps
+```
+
+应用在容器内监听 `0.0.0.0:8080`，映射为 **`主机:8080`**。
+
+## 5. 局域网访问
+
+同一 LAN 的设备浏览器打开：
+
+```text
+http://192.168.14.222:8080
+```
+
+（若小主机 IP 变化，改用实际 IP；端口若在 `docker-compose.yml` 里改过，同步改端口。）
+
+健康检查：`http://192.168.14.222:8080/health`。
+
+## 6. 防火墙（若启用 UFW）
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 8080/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+## 7. 常用运维命令
+
+```bash
+docker compose restart
+docker compose down
+docker compose up -d --build
+docker compose exec ymky bash   # 进容器 Shell（服务名 ymky）
+```
+
+## 8. PostgreSQL / 可选数据库在宿主机上
+
+若在 **同一台 Ubuntu** 上另装 Postgres，容器中 `DATABASE_URL` 可把 host 写成 **宿主机局域网 IP** 或小网桥地址（Linux 常为 `172.17.0.1`）；以你实际连通性为准。勿把 `localhost` 当作「宿主机上的数据库」除非你使用 `extra_hosts`/host 网关网络模式。
+
+---
+
+之后若要 **Cloudflare Tunnel** 指向本服务，仍可让隧道连接到 **`http://127.0.0.1:8080`**（见 `docs/CLOUDFLARE_TUNNEL.md`），与安全策略一致：`uvicorn` 不直接向公网暴露，由隧道收口。

@@ -1,0 +1,31 @@
+# 局域网访问：浏览器打开 http://<小主机局域网IP>:8080
+# 若在 .env 中设置了 YMKY_TRUSTED_HOSTS，须包含该机 IP（不含端口），例如：192.168.14.222,localhost
+
+services:
+  ymky:
+    build: .
+    image: ymky-manager:latest
+    container_name: ymky-manager
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # 按需覆盖（与 .env 二选一）；留空则不在此强制设置
+      TZ: Asia/Shanghai
+    volumes:
+      # 台账 Excel、报表模板 sjcl.xlsx / nybb.xlsx、runtime 登录与密码等均落在此目录
+      - ./data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health').read()",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

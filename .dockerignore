@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+.idea
+.vscode
+.cursor
+.ipynb_checkpoints
+*.log
+_dash.html
+*_uv*.log
+.env

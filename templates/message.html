@@ -1,0 +1,17 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}{{ title }} · 云煤矿业{% endblock %}
+{% block content %}
+<div class="card" style="max-width:36rem;margin-left:auto;margin-right:auto;text-align:center;">
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  <div class="btn-row" style="justify-content:center;margin-top:1rem;">
+    <a class="btn btn-primary inline" href="/login">前往登录</a>
+  </div>
+</div>
+{% endblock %}

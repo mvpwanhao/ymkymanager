@@ -1,0 +1,92 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}实际产量填报 · 云煤矿业{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>实际生产产量录入</h1>
+  <p class="muted">默认日期为昨日（{{ yesterday.isoformat() }}）；选择煤矿后会自动带出对应填报人。</p>
+  <form method="post" action="/entry/actual/submit" class="form-grid cols-2" data-loading>
+    <div>
+      <label for="mine">煤矿名称</label>
+      <select id="mine" name="mine" required>
+        <option value="">— 请选择 —</option>
+        {% for m in mines %}
+        <option value="{{ m }}">{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="prod_date">生产日期</label>
+      <input type="date" id="prod_date" name="prod_date" value="{{ yesterday.isoformat() }}" required />
+    </div>
+    <div>
+      <label for="production">当日实际产量（吨）</label>
+      <input type="number" id="production" name="production" min="0" step="0.01" value="0" inputmode="decimal" required />
+    </div>
+    <div>
+      <label for="reporter">填报人</label>
+      <input type="text" id="reporter" name="reporter" autocomplete="off" />
+      <small class="muted" data-reporter-hint style="display:block;margin-top:0.25rem;"></small>
+    </div>
+    <div class="full-row">
+      <label for="note">备注</label>
+      <textarea id="note" name="note" rows="3" placeholder="如产量为 0，请说明原因（停产 / 检修 等）"></textarea>
+    </div>
+    <div class="btn-row full-row">
+      <button type="submit" name="action" value="submit" class="btn btn-primary">提交数据</button>
+      {% if role == "填报人员" %}
+      <button type="submit" name="action" value="switch_nybb" class="btn btn-secondary"
+              formnovalidate
+              data-confirm-leave="本次实际产量尚未提交，切换到「能源局产销量」后已填内容会丢失，确认切换吗？">
+        去填报能源局产销量
+      </button>
+      <button type="submit" name="action" value="logout" class="btn btn-ghost"
+              formnovalidate
+              data-confirm-leave="本次实际产量尚未提交，退出登录后已填内容会丢失，确认退出吗？">
+        退出登录
+      </button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+<script>
+(function(){
+  var map = {{ actual_reporter_map | tojson }};
+  var mine = document.getElementById("mine");
+  var rep  = document.getElementById("reporter");
+  var hint = document.querySelector("[data-reporter-hint]");
+  function sync(){
+    if (!mine || !rep) return;
+    var v = mine.value;
+    if (v && map && Object.prototype.hasOwnProperty.call(map, v)) {
+      rep.value = map[v];
+      rep.dataset.autofilled = "1";
+      rep.required = false;
+      rep.placeholder = "";
+      if (hint) hint.textContent = "已根据所选煤矿自动带出，可按需修改。";
+    } else if (v) {
+      if (rep.dataset.autofilled === "1") {
+        rep.value = "";
+      }
+      rep.dataset.autofilled = "";
+      rep.required = true;
+      rep.placeholder = "请填写填报人姓名";
+      if (hint) hint.textContent = "请填写填报人。";
+    } else {
+      rep.dataset.autofilled = "";
+      rep.required = false;
+      rep.placeholder = "";
+      if (hint) hint.textContent = "";
+    }
+  }
+  if (rep) rep.addEventListener("input", function(){ rep.dataset.autofilled = ""; });
+  if (mine) mine.addEventListener("change", sync);
+  sync();
+})();
+</script>
+{% endblock %}

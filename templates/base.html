@@ -1,0 +1,121 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{%- from "_icons.html" import nav_icon -%}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta id="meta-theme-color" name="theme-color" content="#0062a8" />
+  <script>
+  (function () {
+    try {
+      var k = "ymky-theme";
+      var p = localStorage.getItem(k) || "system";
+      var dark = p === "dark" || (p === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.setAttribute("data-color-mode", dark ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme-pref", p);
+      var mc = document.getElementById("meta-theme-color");
+      if (mc) mc.setAttribute("content", dark ? "#121316" : "#0062a8");
+    } catch (e) {
+      document.documentElement.setAttribute("data-color-mode", "light");
+      document.documentElement.setAttribute("data-theme-pref", "system");
+    }
+  })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>{% block title %}云煤矿业产销量管理{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_version }}" />
+  <link rel="icon" type="image/png" href="/static/logo.png" />
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主内容</a>
+  {% block topbar %}
+  <header class="topbar">
+    {% if nav and role %}
+    <button type="button" class="menu-toggle" id="navToggle"
+            aria-controls="sidebarNav" aria-expanded="false" aria-label="打开功能菜单">
+      <svg class="i-menu" width="22" height="22" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="4" y1="7"  x2="20" y2="7"/>
+        <line x1="4" y1="12" x2="20" y2="12"/>
+        <line x1="4" y1="17" x2="20" y2="17"/>
+      </svg>
+      <svg class="i-close" width="22" height="22" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="6" y1="6" x2="18" y2="18"/>
+        <line x1="6" y1="18" x2="18" y2="6"/>
+      </svg>
+    </button>
+    {% endif %}
+    <div class="brand">
+      <img class="brand-logo" src="/static/logo.png" alt="云煤矿业" />
+      <div class="brand-text">
+        <strong>云煤矿业 · 产销量管理</strong>
+        {% if role %}<small>{{ role }}{% if reporter_kind %} · {{ reporter_kind }}{% endif %}</small>{% endif %}
+      </div>
+    </div>
+    <div class="topbar-end">
+    <span id="clock" aria-live="polite"></span>
+    <span id="net-status" class="net-status" data-state="checking"
+          role="status" aria-live="polite"
+          title="正在检测与服务器的连接…">
+      <span class="net-dot" aria-hidden="true"></span>
+      <span class="net-label">检测中…</span>
+    </span>
+    {% include "_theme_control.html" %}
+    {% if role %}
+    <a href="/logout" class="btn btn-danger btn-sm topbar-logout"
+       data-confirm-leave="当前页面尚未提交的填报内容会丢失，确认退出登录吗？"
+       title="退出登录" aria-label="退出登录">退出</a>
+    {% endif %}
+    </div>
+  </header>
+  {% endblock %}
+
+  {% block layout %}
+  <div class="app-shell">
+    {% if nav and role %}
+    <aside class="sidebar" id="sidebarNav" aria-label="功能导航" aria-hidden="true">
+      <ul class="sidebar-nav">
+        {% for item in nav %}
+        <li>
+          <a href="{{ item.path }}" {% if page == item.id %}aria-current="page"{% endif %}>
+            {{ nav_icon(item.id) }}<span>{{ item.label }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </aside>
+    <div class="nav-backdrop" id="navBackdrop" hidden></div>
+    {% endif %}
+
+    <main id="main" class="main">
+      {% if flash %}
+      <div class="notice-ok" role="status">{{ flash }}</div>
+      {% endif %}
+      {% if form_error %}
+      <div class="notice-err" role="alert">{{ form_error }}</div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {% endblock %}
+
+  <footer class="app-footer" role="contentinfo">
+    <small>
+      © 2026&ndash;2027 宛皓 · 云煤矿业产销量管理系统 ·
+      仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用 ·
+      保留所有权利
+    </small>
+  </footer>
+
+  <script src="/static/app.js?v={{ asset_version }}" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

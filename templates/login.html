@@ -1,0 +1,73 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}登录 · 云煤矿业{% endblock %}
+{% block topbar %}{% endblock %}
+{% block layout %}
+<div class="login-shell">
+  <div class="login-stack">
+  <div class="login-theme-bar">{% include "_theme_control.html" %}</div>
+  <div class="login-card">
+    <div class="login-head">
+      <img class="brand-logo" src="/static/logo.png" alt="云煤矿业" />
+      <h1>云煤矿业 · 产销量管理</h1>
+      <p class="login-sub">
+        {% if step == "identity" %}请选择您的身份{% else %}{{ temp_role }} 身份验证{% endif %}
+      </p>
+    </div>
+
+    {% if login_error %}
+    <div class="notice-err" role="alert">{{ login_error }}</div>
+    {% endif %}
+
+    {% if step == "identity" %}
+    <form method="post" action="/login/identity" class="login-roles">
+      <button type="submit" name="role" value="填报人员" class="login-btn">
+        <span>
+          <span class="login-btn-title">填报人员</span><br />
+          <span class="login-btn-desc">录入每日产量与产销数据</span>
+        </span>
+        <span class="login-btn-arrow" aria-hidden="true">›</span>
+      </button>
+      <button type="submit" name="role" value="管理员" class="login-btn">
+        <span>
+          <span class="login-btn-title">管理员</span><br />
+          <span class="login-btn-desc">查看数据、修改台账、生成报表</span>
+        </span>
+        <span class="login-btn-arrow" aria-hidden="true">›</span>
+      </button>
+      <button type="submit" name="role" value="产量数据可视化" class="login-btn">
+        <span>
+          <span class="login-btn-title">产量数据可视化</span><br />
+          <span class="login-btn-desc">查看汇总与趋势图</span>
+        </span>
+        <span class="login-btn-arrow" aria-hidden="true">›</span>
+      </button>
+    </form>
+    {% else %}
+    <form method="post" action="/login/verify" class="form-grid">
+      <div>
+        <label for="pwd">访问密码</label>
+        <input id="pwd" name="password" type="password"
+               autocomplete="current-password"
+               value="{{ debug_prefill }}"
+               required autofocus />
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">确认登录</button>
+        <a class="btn btn-secondary inline" href="/login">重新选择身份</a>
+      </div>
+    </form>
+    {% endif %}
+
+    <div class="login-foot">
+      <span id="clock-foot"></span>
+    </div>
+  </div>
+  </div>
+</div>
+{% endblock %}

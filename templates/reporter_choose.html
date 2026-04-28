@@ -1,0 +1,41 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}选择填报类型 · 云煤矿业{% endblock %}
+{% block topbar %}{% endblock %}
+{% block layout %}
+<div class="login-shell">
+  <div class="login-card">
+    <div class="login-head">
+      <img class="brand-logo" src="/static/logo.png" alt="云煤矿业" />
+      <h1>请选择填报类型</h1>
+      <p class="login-sub">填报人员可在两种口径之间切换</p>
+    </div>
+
+    <form method="post" action="/reporter/confirm" class="login-roles">
+      <button type="submit" name="kind" value="actual" class="login-btn">
+        <span>
+          <span class="login-btn-title">实际产量填报</span><br />
+          <span class="login-btn-desc">登记煤矿当日的实际生产产量</span>
+        </span>
+        <span class="login-btn-arrow" aria-hidden="true">›</span>
+      </button>
+      <button type="submit" name="kind" value="nybb" class="login-btn">
+        <span>
+          <span class="login-btn-title">能源局口径产销量填报</span><br />
+          <span class="login-btn-desc">登记上报能源局的当日产量与销量</span>
+        </span>
+        <span class="login-btn-arrow" aria-hidden="true">›</span>
+      </button>
+    </form>
+
+    <div class="login-foot">
+      <a href="/login">↩ 返回登录</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

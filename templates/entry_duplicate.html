@@ -1,0 +1,45 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}重复填报确认 · 云煤矿业{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="row" style="gap:0.6rem;align-items:center;margin-bottom:0.4rem;">
+    <span class="chip chip-warn chip-dot">注意</span>
+    <h1 style="margin:0;">检测到已有数据</h1>
+  </div>
+  <p class="muted">
+    {{ kind_label }}台账中，<strong>{{ mine }}</strong> 在 <strong>{{ prod_date }}</strong>
+    已存在 <strong>{{ existing_count }}</strong> 条记录。请确认本次操作。
+  </p>
+
+  <h2 style="margin-top:1rem;">已有记录</h2>
+  <div class="table-wrap">{{ existing_html | safe }}</div>
+
+  <h2 style="margin-top:1rem;">本次拟提交</h2>
+  <div class="table-wrap">{{ pending_html | safe }}</div>
+
+  <form method="post" action="{{ submit_path }}" data-loading style="margin-top:1rem;">
+    {% for k, v in form_fields.items() %}
+    <input type="hidden" name="{{ k }}" value="{{ v }}" />
+    {% endfor %}
+    <input type="hidden" name="action" value="submit" />
+    <div class="btn-row">
+      <button type="submit" name="confirm" value="append" class="btn btn-secondary">
+        仍然追加（保留旧记录）
+      </button>
+      <button type="submit" name="confirm" value="replace" class="btn btn-danger">
+        覆盖（删除 {{ existing_count }} 条旧记录后写入）
+      </button>
+      <a class="btn btn-ghost inline" href="/">取消</a>
+    </div>
+    <p class="muted" style="margin-top:0.6rem;">
+      「追加」会保留已有记录，再补一条本次内容；「覆盖」会先删除上述全部记录，再写入本次内容，请谨慎使用。
+    </p>
+  </form>
+</div>
+{% endblock %}
