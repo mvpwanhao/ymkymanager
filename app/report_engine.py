@@ -11,11 +11,26 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
 from app.config import get_settings
+from app.constants import REMOVED_MINE_KEYWORDS
 from app.storage import read_records
-from app.timeutil import get_26day_statistical_month_label, get_26day_year_range, today_beijing
+from app.timeutil import (
+    get_26day_statistical_month_label,
+    get_26day_year_range,
+    today_beijing,
+)
 
-REMOVED_MINE_KEYWORDS = ("羊街", "竹麻地")
 EXPORT_RETENTION_DAYS = 7
+
+# sjcl1.xlsx 数据行（A 列）；第 7 行为羊街煤矿，台账已排除，仅占位不填产量
+SJCL_V2_DATA_ROWS: tuple[tuple[str, int, str], ...] = (
+    ("姚家村", 4, "姚家村煤矿"),
+    ("金所", 5, "金所煤矿"),
+    ("郭家山", 6, "郭家山煤矿"),
+    ("芒东二矿", 8, "芒东二矿"),
+    ("胜利", 9, "胜利煤矿"),
+    ("竜浪", 10, "竜浪煤矿"),
+)
+SJCL_V2_YANGJIE_ROW = 7
 
 
 def get_statistical_year_start(target_dt: date) -> date:
@@ -68,15 +83,23 @@ def _merge_notes(series: pd.Series) -> str:
     return "；".join(out)
 
 
-MONTHLY_PLAN_BY_MINE = {
-    "郭家山煤矿": 300000,
-    "姚家村煤矿": 250000,
-    "金所煤矿": 200000,
-    "芒东二矿": 180000,
-    "胜利煤矿": 150000,
-    "竜浪煤矿": 120000,
-    "双河煤矿": 100000,
-}
+def read_sjcl_v2_daily_plans_from_template(template_path: str) -> dict[str, float]:
+    """从 sjcl1 模板 B 列读取各矿日计划量（吨）。键为台账煤矿全称，如「姚家村煤矿」。"""
+    out: dict[str, float] = {}
+    if not template_path or not os.path.isfile(template_path):
+        return out
+    try:
+        wb = load_workbook(template_path, data_only=True)
+        ws = wb.active
+        for _ledger_prefix, row, canonical in SJCL_V2_DATA_ROWS:
+            raw = ws.cell(row=row, column=2).value
+            try:
+                out[canonical] = float(raw) if raw is not None and str(raw).strip() != "" else 0.0
+            except (TypeError, ValueError):
+                out[canonical] = 0.0
+    except Exception:
+        return out
+    return out
 
 
 def generate_sjcl_report(target_date) -> tuple[str | None, str]:
@@ -108,21 +131,41 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
         wb = load_workbook(output_fn)
         ws = wb.active
 
-        SJCL_MAP = {"姚家村": 4, "金所": 5, "郭家山": 6, "芒东二矿": 8, "胜利": 9, "竜浪": 10}
         year_start = get_statistical_year_start(target_dt)
+        # B 列日计划量以模板为准，不在此重算、不覆盖
 
-        for mine, row in SJCL_MAP.items():
-            mine_df = df[df["所属煤矿"].str.startswith(mine, na=False)].copy()
+        for ledger_prefix, row, canonical in SJCL_V2_DATA_ROWS:
+            mine_df = df[df["所属煤矿"].str.startswith(ledger_prefix, na=False)].copy()
 
             c_val = mine_df[mine_df["生产日期"] == target_dt]["产量(吨)"].sum()
             set_cell_integer(ws, row, 3, c_val)
 
-            f_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
-            set_cell_integer(ws, row, 6, f_val)
-
             mine_day_df = mine_df[mine_df["生产日期"] == target_dt]
             note_text = _merge_notes(mine_day_df["备注"]) if "备注" in mine_day_df.columns else ""
-            ws.cell(row=row, column=5, value=note_text)
+            ws.cell(row=row, column=5, value=note_text or None)
+
+            f_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)][
+                "产量(吨)"
+            ].sum()
+            set_cell_integer(ws, row, 6, f_val)
+
+        set_cell_integer(ws, SJCL_V2_YANGJIE_ROW, 3, 0)
+        ws.cell(row=SJCL_V2_YANGJIE_ROW, column=5, value=None)
+        set_cell_integer(ws, SJCL_V2_YANGJIE_ROW, 6, 0)
+
+        for _r in range(4, 11):
+            ws.cell(
+                row=_r,
+                column=4,
+                value=f"=IF(B{_r}=0,0,C{_r}/B{_r}*100)",
+            )
+
+        r11 = 11
+        ws.cell(row=r11, column=2, value="=SUM(B4:B10)").number_format = "0"
+        c11 = ws.cell(row=r11, column=3, value="=SUM(C4:C10)")
+        c11.number_format = "0"
+        ws.cell(row=r11, column=4, value="=IF(B11=0,0,C11/B11*100)")
+        ws.cell(row=r11, column=6, value="=SUM(F4:F10)").number_format = "0"
 
         wb.save(output_fn)
         return output_fn, "实际产量报表生成成功"

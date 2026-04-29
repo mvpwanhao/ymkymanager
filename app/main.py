@@ -37,9 +37,13 @@ from app.auth import (
 )
 from app.config import get_settings
 from app.middleware_production import SecurityHeadersMiddleware, StaticCacheMiddleware
-from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP, MINE_LIST, MONTHLY_PLAN_BY_MINE
+from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP, MINE_LIST
 from app.dashboard_data import build_summary_and_charts, exclude_mines
-from app.report_engine import generate_nybb_report, generate_sjcl_report
+from app.report_engine import (
+    generate_nybb_report,
+    generate_sjcl_report,
+    read_sjcl_v2_daily_plans_from_template,
+)
 from app.services.notify import notify_submit_actual, notify_submit_energy
 from app.storage import (
     append_records,
@@ -586,13 +590,14 @@ def create_app() -> FastAPI:
         if prod == 0.0 and not str(note).strip():
             request.session["form_error"] = "产量为 0 时须填备注"
             return RedirectResponse("/", status_code=303)
-        monthly_plan = MONTHLY_PLAN_BY_MINE.get(mine, 0)
-        if monthly_plan > 0 and prod > 0:
-            workdays_in_month = 22
-            daily_target = monthly_plan / workdays_in_month
-            if prod < daily_target * 0.9 and not str(note).strip():
-                request.session["form_error"] = f"产量低于月计划日均的 90%（日均目标：{int(daily_target)} 吨），须填备注说明原因"
-                return RedirectResponse("/", status_code=303)
+        tmpl = get_settings().sjcl_template_v2
+        daily_plan = read_sjcl_v2_daily_plans_from_template(tmpl).get(mine, 0.0)
+        if daily_plan > 0 and prod > 0 and prod < daily_plan * 0.9 and not str(note).strip():
+            rounded = round(daily_plan, 2)
+            request.session["form_error"] = (
+                f"产量低于日计划量的 90%（模板 B 列日计划量参考 {rounded:.2f} 吨），须填备注说明原因"
+            )
+            return RedirectResponse("/", status_code=303)
         rep_input = (reporter or "").strip()
         mapped_rep = ACTUAL_REPORTER_MAP.get(mine, "")
         if role != "管理员" and not rep_input and not mapped_rep:
