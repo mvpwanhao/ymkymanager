@@ -105,6 +105,10 @@ class Settings(BaseSettings):
         return str(self.data_dir / "sjcl.xlsx")
 
     @property
+    def sjcl_template_v2(self) -> str:
+        return str(self.data_dir / "sjcl1.xlsx")
+
+    @property
     def nybb_template(self) -> str:
         return str(self.data_dir / "nybb.xlsx")
 

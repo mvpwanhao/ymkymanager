@@ -15,6 +15,7 @@ from app.storage import read_records
 from app.timeutil import get_26day_statistical_month_label, get_26day_year_range, today_beijing
 
 REMOVED_MINE_KEYWORDS = ("羊街", "竹麻地")
+EXPORT_RETENTION_DAYS = 7
 
 
 def get_statistical_year_start(target_dt: date) -> date:
@@ -26,6 +27,29 @@ def set_cell_integer(ws, row, col, value):
     val = float(value) if pd.notna(value) else 0
     cell = ws.cell(row=row, column=col, value=val)
     cell.number_format = "0"
+
+
+def _cleanup_old_exports(out_dir: str, keep_days: int = EXPORT_RETENTION_DAYS) -> None:
+    """删除导出目录中超过保留天数的历史文件（按 mtime）。"""
+    try:
+        now_ts = today_beijing().timestamp()
+    except Exception:
+        return
+    max_age_seconds = max(int(keep_days), 1) * 24 * 60 * 60
+    for name in os.listdir(out_dir):
+        p = os.path.join(out_dir, name)
+        if not os.path.isfile(p):
+            continue
+        try:
+            st = os.stat(p)
+        except OSError:
+            continue
+        if now_ts - st.st_mtime > max_age_seconds:
+            try:
+                os.remove(p)
+            except OSError:
+                # 清理失败不影响主流程
+                pass
 
 
 def _merge_notes(series: pd.Series) -> str:
@@ -44,9 +68,20 @@ def _merge_notes(series: pd.Series) -> str:
     return "；".join(out)
 
 
+MONTHLY_PLAN_BY_MINE = {
+    "郭家山煤矿": 300000,
+    "姚家村煤矿": 250000,
+    "金所煤矿": 200000,
+    "芒东二矿": 180000,
+    "胜利煤矿": 150000,
+    "竜浪煤矿": 120000,
+    "双河煤矿": 100000,
+}
+
+
 def generate_sjcl_report(target_date) -> tuple[str | None, str]:
     s = get_settings()
-    TEMPLATE_SJCL = s.sjcl_template
+    TEMPLATE_SJCL = s.sjcl_template_v2
     ACTUAL_FILE = s.actual_production_path
 
     if not os.path.exists(TEMPLATE_SJCL):
@@ -63,36 +98,51 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
 
         out_dir = os.path.join(s.data_dir, "exports")
         os.makedirs(out_dir, exist_ok=True)
+        _cleanup_old_exports(out_dir)
         date_str = today_beijing().strftime("%m.%d").lstrip("0").replace(".0", ".")
-        output_fn = os.path.join(out_dir, f"云煤矿业原煤实际产量及进尺完成情况统计表（{date_str}）.xlsx")
+        output_fn = os.path.join(out_dir, f"云煤矿业原煤实际产量统计表（{date_str}）.xlsx")
 
         shutil.copy(TEMPLATE_SJCL, output_fn)
         wb = load_workbook(output_fn)
         ws = wb.active
 
-        ws["J15"] = f"填报日期：{today_beijing().strftime('%Y年%m月%d日')}"
+        ws["G1"] = f"填报日期：{today_beijing().strftime('%Y年%m月%d日')}"
 
-        SJCL_MAP = {"姚家村": 5, "金所": 6, "郭家山": 7, "芒东二矿": 9, "胜利": 10, "竜浪": 11}
+        SJCL_MAP = {"郭家山煤矿": 4, "姚家村煤矿": 5, "金所煤矿": 6, "芒东二矿": 7, "胜利煤矿": 8, "竜浪煤矿": 9, "双河煤矿": 10}
         year_start = get_statistical_year_start(target_dt)
+
+        daily_production = []
+        year_cumulative = []
 
         for mine, row in SJCL_MAP.items():
             mine_df = df[df["所属煤矿"].str.startswith(mine, na=False)]
 
             d_val = mine_df[mine_df["生产日期"] == target_dt]["产量(吨)"].sum()
+            daily_production.append(d_val)
             set_cell_integer(ws, row, 4, d_val)
 
-            y_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
-            set_cell_integer(ws, row, 5, y_val)
+            monthly_plan = MONTHLY_PLAN_BY_MINE.get(mine, 0)
+            if monthly_plan > 0 and d_val > 0:
+                completion_rate = (d_val / (monthly_plan / 30)) * 100
+            else:
+                completion_rate = 0
+            cell = ws.cell(row=row, column=5, value=completion_rate)
+            cell.number_format = "0.00"
 
-            # 备注列（J）：写入该矿在目标日期的备注；多条去空去重后用全角分号拼接。
+            y_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
+            year_cumulative.append(y_val)
+            set_cell_integer(ws, row, 6, y_val)
+
             mine_day_df = mine_df[mine_df["生产日期"] == target_dt]
             note_text = _merge_notes(mine_day_df["备注"]) if "备注" in mine_day_df.columns else ""
-            ws.cell(row=row, column=10, value=note_text)
+            ws.cell(row=row, column=7, value=note_text)
 
-        for col in [4, 5]:
-            col_let = get_column_letter(col)
-            cell = ws.cell(row=13, column=col, value=f"=SUM({col_let}5:{col_let}12)")
-            cell.number_format = "0"
+        col_d = get_column_letter(4)
+        col_f = get_column_letter(6)
+        cell_d = ws.cell(row=11, column=4, value=f"=SUM({col_d}4:{col_d}10)")
+        cell_d.number_format = "0"
+        cell_f = ws.cell(row=11, column=6, value=f"=SUM({col_f}4:{col_f}10)")
+        cell_f.number_format = "0"
 
         wb.save(output_fn)
         return output_fn, "实际产量报表生成成功"
@@ -119,6 +169,7 @@ def generate_nybb_report(target_date) -> tuple[str | None, str]:
 
         out_dir = os.path.join(s.data_dir, "exports")
         os.makedirs(out_dir, exist_ok=True)
+        _cleanup_old_exports(out_dir)
         today_str = today_beijing().strftime("%m.%d").lstrip("0").replace(".0", ".")
         output_fn = os.path.join(
             out_dir, f"{target_dt.year}年云煤矿业煤炭产量、销量、流向日报表（{today_str}）.xlsx"
