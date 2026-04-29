@@ -124,7 +124,7 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
         _cleanup_old_exports(out_dir)
         today_str = today_beijing().strftime("%m.%d").lstrip("0").replace(".0", ".")
         output_fn = os.path.join(
-            out_dir, f"{target_dt.year}年云煤矿业原煤实际产量统计表（{today_str}）.xlsx"
+            out_dir, f"{target_dt.year}年云煤矿业产量进尺统计表（{today_str}）.xlsx"
         )
 
         shutil.copy(TEMPLATE_SJCL, output_fn)
