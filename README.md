@@ -1,136 +1,152 @@
-﻿# 云煤产销量管理系统
+﻿# 云煤矿业产销量管理系统
 
-> **Copyright © 2026–2027 宛皓 (Wan Hao). All Rights Reserved.**  
-> 本软件著作权由宛皓完整持有。仅授予「云南云煤矿业开发有限公司」及其关联方在内部业务系统中以非排他、不可转让的方式使用。  
-> 未经著作权人书面同意，禁止复制、反编译、转售、二次发行。详见 [`LICENSE`](./LICENSE)。
+> 云煤矿业内部生产数据填报与经营报送平台  
+> **Birth Release:** `v1.0.0 (Birth)`
 
-基于 **FastAPI + Jinja2** 的煤矿产销量管理系统，支持多角色登录、数据填报、台账管理、可视化与报表导出，适配 PC 与手机浏览器。
+---
 
-## 主要功能
+## 版权与使用
 
-- 角色权限：管理员、填报人员、产量数据可视化
-- 数据填报：
+**Copyright © 2026-2027 宛皓 (Wan Hao). All Rights Reserved.**
+
+本软件著作权由宛皓完整持有。仅授权「云南云煤矿业开发有限公司」及其关联方在内部业务系统中非排他、不可转让地使用。未经著作权人书面许可，禁止复制、反编译、转售或二次发行。详见 `LICENSE`。
+
+---
+
+## 项目定位
+
+本系统基于 `FastAPI + Jinja2` 构建，面向煤矿产销业务场景，聚焦“**标准化填报、可追溯台账、自动化报表、稳定上线运维**”四大能力，支持 PC 与移动端浏览器访问。
+
+---
+
+## 核心能力
+
+- 多角色权限体系：管理员 / 填报人员 / 数据可视化角色
+- 双通道填报流程：
   - 实际产量填报
   - 能源局口径产销量填报
-- 重复填报检测：同矿同日期支持“追加”或“覆盖”
-- 历史记录与管理员台账编辑
-- 报表生成与下载：
-  - 实际产量统计表（含备注写入 J 列）
-  - 能源局日报
-- 健康检查：`/health`
+- 同矿同日重复填报保护：支持“追加”与“覆盖”确认
+- 历史记录查询与管理员台账在线维护
+- 一键生成导出报表：
+  - 实际产量统计报表（基于 `sjcl1.xlsx` 模板）
+  - 能源局日报（基于 `nybb.xlsx` 模板）
+- 微信通知（Server酱）：填报成功后可自动发送
+- 健康检查接口：`/health`（支持输出版本号）
 
-## 技术栈
+---
 
-- Python 3.10+
-- FastAPI / Starlette
-- Jinja2
-- pandas / openpyxl
-- 可选 PostgreSQL（默认支持 Excel 文件存储）
+## 技术架构
 
-## 目录结构（核心）
+- **Backend:** Python 3.10+, FastAPI, Starlette
+- **Template/UI:** Jinja2 + 原生静态资源
+- **Data Layer:** pandas, openpyxl
+- **Storage Mode:** Excel（默认）/ PostgreSQL（可选）
+- **Process:** systemd（生产常驻）
+- **External Access:** Cloudflare Tunnel（无公网 IP 场景）
 
-- `app/`：后端业务代码
+---
+
+## 目录总览
+
+- `app/`：业务主代码（路由、配置、存储、报表、通知）
 - `templates/`：页面模板
 - `static/`：前端静态资源
-- `data/`：数据文件、模板与导出目录
+- `data/`：业务数据、报表模板、导出文件
 - `scripts/`：部署与运维脚本
-- `docs/`：部署/隧道/容器说明
+- `docs/`：部署、同步、容器、隧道等文档
 
-## 快速开始（本地）
+---
+
+## 快速启动（本地）
 
 ```powershell
 python -m pip install -r requirements.txt
 copy .env.example .env
-```
-
-编辑 `.env`（至少设置以下项）：
-
-- `YMKY_SECRET_KEY`（必须，建议随机强密钥）
-- `YMKY_PASSWORD_ADMIN`
-- `YMKY_PASSWORD_REPORTER`
-- `YMKY_PASSWORD_VIEWER`
-
-启动：
-
-```powershell
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8080
 ```
 
 访问：
 
-- 首页：`http://127.0.0.1:8080`
-- 健康检查：`http://127.0.0.1:8080/health`
+- `http://127.0.0.1:8080`
+- `http://127.0.0.1:8080/health`
 
-## 数据与模板说明
+---
 
-默认数据目录：`data/`
+## 数据与模板
 
-- 实际产量数据：`actual_production.xlsx`
-- 能源局数据：`energy_reporting.xlsx`
-- 报表模板：
-  - `sjcl.xlsx`
-  - `nybb.xlsx`
+默认数据根目录为 `data/`：
+
+- 实际产量台账：`actual_production.xlsx`
+- 能源局台账：`energy_reporting.xlsx`
+- 实际产量模板：`sjcl1.xlsx`
+- 能源局模板：`nybb.xlsx`
 - 导出目录：`data/exports/`
 
-如配置 `DATABASE_URL`，系统改为使用 PostgreSQL；未配置时使用 Excel 文件。
+> 若配置 `DATABASE_URL`，系统将切换到 PostgreSQL；未配置时默认使用 Excel 文件存储。
 
-## 关键配置项（.env）
+---
 
-- `YMKY_SECRET_KEY`：会话签名密钥
+## 环境变量（关键项）
+
+- `YMKY_SECRET_KEY`：会话签名密钥（生产必配强随机）
 - `YMKY_ENV`：`development` / `production`
-- `YMKY_TRUSTED_HOSTS`：Host 白名单（逗号分隔，**不含端口**）
-- `YMKY_APP_VERSION`：健康检查可选版本字段
+- `YMKY_TRUSTED_HOSTS`：Host 白名单（逗号分隔，不含端口）
+- `YMKY_APP_VERSION`：健康检查版本字段（例如 `v1.0.0 (Birth)`）
 - `YMKY_SESSION_TTL`：会话有效期（秒）
-- `YMKY_LOCAL_DEBUG`：本地调试预填密码开关（生产建议关闭）
-- `YMKY_PASSWORD_ADMIN` / `YMKY_PASSWORD_REPORTER` / `YMKY_PASSWORD_VIEWER`
-- `DATABASE_URL`（可选）
-- `SERVERCHAN_SENDKEY`（可选）
+- `YMKY_PASSWORD_ADMIN`
+- `YMKY_PASSWORD_REPORTER`
+- `YMKY_PASSWORD_VIEWER`
+- `SERVERCHAN_SENDKEY`：微信通知（可选）
+- `DATABASE_URL`：数据库连接（可选）
 
-## 生产部署
+---
 
-### 无 Docker（推荐）
+## 生产部署建议
 
-参考：[`docs/DEPLOY_SYNC.md`](docs/DEPLOY_SYNC.md)
+推荐采用 **No-Docker + systemd + Git 同步**：
 
-当前默认代码远端：Gitee  
-`origin = https://gitee.com/mvpwanhao/ykmymanager.git`
+1. 本机提交并推送到 Gitee：`git push origin main`
+2. 服务器执行拉取部署脚本：`scripts/server_git_pull_deploy.sh`
+3. 自动按需安装依赖并重启 `ymky` 服务
 
-常规发布流程：
+完整文档：
 
-1. 本机 `git push origin main`
-2. 服务器 `git pull origin main`
-3. `sudo systemctl restart ymky`
+- 部署同步：`docs/DEPLOY_SYNC.md`
+- Docker 部署：`docs/DOCKER.md`
+- Cloudflare Tunnel：`docs/CLOUDFLARE_TUNNEL.md`
 
-### Docker 部署
+---
 
-参考：[`docs/DOCKER.md`](docs/DOCKER.md)
-
-### 无公网 IP 外网访问
-
-参考：[`docs/CLOUDFLARE_TUNNEL.md`](docs/CLOUDFLARE_TUNNEL.md)
-
-## 运维常用命令
+## 运行与巡检
 
 ```bash
-# 服务状态
+# 应用服务
 systemctl status ymky --no-pager
-
-# 最近日志
 journalctl -u ymky -n 100 --no-pager
+
+# Tunnel 服务（如启用）
+systemctl status cloudflared --no-pager
+journalctl -u cloudflared -n 100 --no-pager
 
 # 健康检查
 curl -s http://127.0.0.1:8080/health
 ```
 
-## 安全建议
+---
 
-- 生产环境使用强随机 `YMKY_SECRET_KEY`
-- 不要将 `.env` 提交到仓库
-- 配置 `YMKY_TRUSTED_HOSTS` 防止异常 Host 请求
-- 定期备份 `data/` 或数据库
+## 安全与运维建议
 
-## 开发检查
+- 严禁提交 `.env`、密钥、数据库凭据
+- 使用强随机 `YMKY_SECRET_KEY`
+- 配置 `YMKY_TRUSTED_HOSTS` 防止 Host 头滥用
+- 定期备份 `data/`（或数据库）
+- Cloudflare Token 泄露后应立即轮换
+- 生产环境仅保留 systemd 进程，不并行手工 `nohup` 进程
+
+---
+
+## 开发者检查
 
 ```powershell
-python -m py_compile app/main.py app/storage.py app/report_engine.py
+python -m py_compile app/main.py app/storage.py app/report_engine.py app/services/notify.py
 ```
