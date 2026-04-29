@@ -14,7 +14,7 @@
   <div class="form-grid cols-2" style="gap:1.5rem;margin-top:0.6rem;">
     <div class="card" style="margin:0;background:var(--c-bg-soft);box-shadow:none;">
       <h3>实际产量统计表</h3>
-      <p class="muted">按 sjcl1：B 列日计划量，C 当日完成，E 备注，F 年累计；第 11 行合计（含完成率）。</p>
+      <p class="muted">汇总所选日期的实际产量并生成报表。</p>
       <form method="post" action="/reports/sjcl" data-loading>
         <label for="d1">数据所属日期</label>
         <input type="date" id="d1" name="target_date" value="{{ default_date.isoformat() }}" required />
