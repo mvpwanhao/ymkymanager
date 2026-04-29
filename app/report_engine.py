@@ -99,26 +99,26 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
         out_dir = os.path.join(s.data_dir, "exports")
         os.makedirs(out_dir, exist_ok=True)
         _cleanup_old_exports(out_dir)
-        date_str = today_beijing().strftime("%m.%d").lstrip("0").replace(".0", ".")
-        output_fn = os.path.join(out_dir, f"云煤矿业原煤实际产量统计表（{date_str}）.xlsx")
+        today_str = today_beijing().strftime("%m.%d").lstrip("0").replace(".0", ".")
+        output_fn = os.path.join(
+            out_dir, f"{target_dt.year}年云煤矿业原煤实际产量统计表（{today_str}）.xlsx"
+        )
 
         shutil.copy(TEMPLATE_SJCL, output_fn)
-        wb = load_workbook(output_fn, read_only=False, keep_links=True)
+        wb = load_workbook(output_fn)
         ws = wb.active
 
-        ws.cell(row=1, column=7, value=f"填报日期：{today_beijing().strftime('%Y年%m月%d日')}")
-
-        SJCL_MAP = {"姚家村煤矿": 4, "金所煤矿": 5, "郭家山煤矿": 6, "芒东二矿": 8, "胜利煤矿": 9, "竜浪煤矿": 10}
+        SJCL_MAP = {"姚家村": 4, "金所": 5, "郭家山": 6, "芒东二矿": 8, "胜利": 9, "竜浪": 10}
         year_start = get_statistical_year_start(target_dt)
 
         for mine, row in SJCL_MAP.items():
-            mine_df = df[df["所属煤矿"].str.startswith(mine, na=False)]
+            mine_df = df[df["所属煤矿"].str.startswith(mine, na=False)].copy()
 
-            d_val = mine_df[mine_df["生产日期"] == target_dt]["产量(吨)"].sum()
-            set_cell_integer(ws, row, 3, d_val)
+            c_val = mine_df[mine_df["生产日期"] == target_dt]["产量(吨)"].sum()
+            set_cell_integer(ws, row, 3, c_val)
 
-            y_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
-            set_cell_integer(ws, row, 6, y_val)
+            f_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
+            set_cell_integer(ws, row, 6, f_val)
 
             mine_day_df = mine_df[mine_df["生产日期"] == target_dt]
             note_text = _merge_notes(mine_day_df["备注"]) if "备注" in mine_day_df.columns else ""
