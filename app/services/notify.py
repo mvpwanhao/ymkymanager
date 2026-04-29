@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import date
+from urllib.error import HTTPError
 from urllib import parse, request
 
 from app.config import get_settings
@@ -35,6 +36,17 @@ def send_serverchan(*, title: str, desp: str) -> tuple[bool, str]:
         if int(payload.get("code", -1)) == 0:
             return True, "微信提醒已发送"
         return False, f"微信提醒发送失败：{payload.get('message', '未知错误')}"
+    except HTTPError as e:
+        detail = ""
+        try:
+            raw = e.read().decode("utf-8", errors="ignore")
+            payload = json.loads(raw) if raw else {}
+            detail = str(payload.get("message") or payload.get("info") or "").strip()
+        except Exception:
+            detail = ""
+        if detail:
+            return False, f"微信提醒发送失败：{detail}"
+        return False, f"微信提醒发送失败：HTTP {e.code}"
     except Exception as e:
         return False, f"微信提醒发送异常：{e!s}"
 
