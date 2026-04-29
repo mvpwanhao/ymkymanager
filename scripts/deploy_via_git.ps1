@@ -21,8 +21,9 @@ if (-not $NoPush) {
     & git push $GitRemote $Branch
 }
 
-$bashLine = "cd `"$RemoteCd`" && chmod +x ./scripts/server_git_pull_deploy.sh && ./scripts/server_git_pull_deploy.sh"
-Write-Host "ssh ? $bashLine" -ForegroundColor Cyan
-ssh $SshTarget "bash -lc `"$bashLine`""
+# Use absolute path (no rely on login shell cwd); script self-cd's to repo root
+$deploySh = "$RemoteCd/scripts/server_git_pull_deploy.sh".Replace("\", "/")
+Write-Host "ssh: bash $deploySh" -ForegroundColor Cyan
+ssh $SshTarget "bash `"$deploySh`""
 
 Write-Host "Done. Check http://192.168.14.222:8080" -ForegroundColor Green
