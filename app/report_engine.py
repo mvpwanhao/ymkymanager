@@ -103,7 +103,7 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
         output_fn = os.path.join(out_dir, f"云煤矿业原煤实际产量统计表（{date_str}）.xlsx")
 
         shutil.copy(TEMPLATE_SJCL, output_fn)
-        wb = load_workbook(output_fn)
+        wb = load_workbook(output_fn, read_only=False, keep_links=True)
         ws = wb.active
 
         ws["G1"] = f"填报日期：{today_beijing().strftime('%Y年%m月%d日')}"
@@ -111,38 +111,18 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
         SJCL_MAP = {"郭家山煤矿": 4, "姚家村煤矿": 5, "金所煤矿": 6, "芒东二矿": 7, "胜利煤矿": 8, "竜浪煤矿": 9, "双河煤矿": 10}
         year_start = get_statistical_year_start(target_dt)
 
-        daily_production = []
-        year_cumulative = []
-
         for mine, row in SJCL_MAP.items():
             mine_df = df[df["所属煤矿"].str.startswith(mine, na=False)]
 
             d_val = mine_df[mine_df["生产日期"] == target_dt]["产量(吨)"].sum()
-            daily_production.append(d_val)
             set_cell_integer(ws, row, 4, d_val)
 
-            monthly_plan = MONTHLY_PLAN_BY_MINE.get(mine, 0)
-            if monthly_plan > 0 and d_val > 0:
-                completion_rate = (d_val / (monthly_plan / 30)) * 100
-            else:
-                completion_rate = 0
-            cell = ws.cell(row=row, column=5, value=completion_rate)
-            cell.number_format = "0.00"
-
             y_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
-            year_cumulative.append(y_val)
             set_cell_integer(ws, row, 6, y_val)
 
             mine_day_df = mine_df[mine_df["生产日期"] == target_dt]
             note_text = _merge_notes(mine_day_df["备注"]) if "备注" in mine_day_df.columns else ""
             ws.cell(row=row, column=7, value=note_text)
-
-        col_d = get_column_letter(4)
-        col_f = get_column_letter(6)
-        cell_d = ws.cell(row=11, column=4, value=f"=SUM({col_d}4:{col_d}10)")
-        cell_d.number_format = "0"
-        cell_f = ws.cell(row=11, column=6, value=f"=SUM({col_f}4:{col_f}10)")
-        cell_f.number_format = "0"
 
         wb.save(output_fn)
         return output_fn, "实际产量报表生成成功"
