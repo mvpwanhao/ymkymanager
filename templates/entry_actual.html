@@ -27,7 +27,7 @@
     <div>
       <label for="production">当日实际产量（吨）</label>
       <input type="number" id="production" name="production" min="0" step="0.01" value="0" inputmode="decimal" required />
-      <small class="muted" style="display:block;margin-top:0.25rem;">日计划量以 <code>data/sjcl1.xlsx</code> 模板 B 列为准。若当日实际产量低于日计划量的 90%，须填写备注。</small>
+      <small class="muted" style="display:block;margin-top:0.25rem;" data-plan-hint>当日实际产量低于日计划量***，请备注原因。</small>
     </div>
     <div>
       <label for="reporter">填报人</label>
@@ -58,12 +58,28 @@
 <script>
 (function(){
   var map = {{ actual_reporter_map | tojson }};
+  var planMap = {{ actual_daily_plan_map | tojson }};
   var mine = document.getElementById("mine");
   var rep  = document.getElementById("reporter");
   var hint = document.querySelector("[data-reporter-hint]");
+  var planHint = document.querySelector("[data-plan-hint]");
+  function formatPlan(v){
+    var n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(2).replace(/\.00$/, "") : "";
+  }
   function sync(){
     if (!mine || !rep) return;
     var v = mine.value;
+    var planText = "";
+    if (v && planMap && Object.prototype.hasOwnProperty.call(planMap, v)) {
+      var plan = formatPlan(planMap[v]);
+      if (plan) {
+        planText = "（" + plan + "吨）的 90%";
+      }
+    }
+    if (planHint) {
+      planHint.textContent = "当日实际产量低于日计划量" + planText + "，请备注原因。";
+    }
     if (v && map && Object.prototype.hasOwnProperty.call(map, v)) {
       rep.value = map[v];
       rep.dataset.autofilled = "1";

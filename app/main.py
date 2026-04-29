@@ -437,6 +437,9 @@ def create_app() -> FastAPI:
             "form_error": request.session.pop("form_error", None),
             "flash": request.session.pop("flash", None),
             "actual_reporter_map": ACTUAL_REPORTER_MAP,
+            "actual_daily_plan_map": read_sjcl_v2_daily_plans_from_template(
+                get_settings().sjcl_template_v2
+            ),
             "energy_reporter_map": ENERGY_REPORTER_MAP,
         }
         if page == "visual":
