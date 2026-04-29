@@ -106,23 +106,23 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
         wb = load_workbook(output_fn, read_only=False, keep_links=True)
         ws = wb.active
 
-        ws["G1"] = f"填报日期：{today_beijing().strftime('%Y年%m月%d日')}"
+        ws.cell(row=1, column=7, value=f"填报日期：{today_beijing().strftime('%Y年%m月%d日')}")
 
-        SJCL_MAP = {"郭家山煤矿": 4, "姚家村煤矿": 5, "金所煤矿": 6, "芒东二矿": 7, "胜利煤矿": 8, "竜浪煤矿": 9, "双河煤矿": 10}
+        SJCL_MAP = {"姚家村煤矿": 4, "金所煤矿": 5, "郭家山煤矿": 6, "芒东二矿": 8, "胜利煤矿": 9, "竜浪煤矿": 10}
         year_start = get_statistical_year_start(target_dt)
 
         for mine, row in SJCL_MAP.items():
             mine_df = df[df["所属煤矿"].str.startswith(mine, na=False)]
 
             d_val = mine_df[mine_df["生产日期"] == target_dt]["产量(吨)"].sum()
-            set_cell_integer(ws, row, 4, d_val)
+            set_cell_integer(ws, row, 3, d_val)
 
             y_val = mine_df[(mine_df["生产日期"] >= year_start) & (mine_df["生产日期"] <= target_dt)]["产量(吨)"].sum()
             set_cell_integer(ws, row, 6, y_val)
 
             mine_day_df = mine_df[mine_df["生产日期"] == target_dt]
             note_text = _merge_notes(mine_day_df["备注"]) if "备注" in mine_day_df.columns else ""
-            ws.cell(row=row, column=7, value=note_text)
+            ws.cell(row=row, column=5, value=note_text)
 
         wb.save(output_fn)
         return output_fn, "实际产量报表生成成功"
