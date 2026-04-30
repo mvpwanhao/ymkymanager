@@ -287,7 +287,8 @@ def build_summary_and_charts(
         .sum()
         .sort_values("产量(吨)", ascending=False)
     )
-    total_val = share_df["产量(吨)"].sum() or 1
+    period_total_actual = float(share_df["产量(吨)"].sum())
+    total_val = period_total_actual or 1
     share_df["占比"] = (share_df["产量(吨)"] / total_val * 100).round(2)
     share_df["标签"] = (
         share_df["所属煤矿"]
@@ -312,10 +313,21 @@ def build_summary_and_charts(
         ]
     )
     pie_fig.update_layout(
-        margin=dict(l=20, r=20, t=20, b=20),
+        margin=dict(l=20, r=20, t=52, b=20),
         legend_title_text="煤矿",
         dragmode=False,
         colorway=list(_PLOT_COLORWAY),
+    )
+    pie_fig.add_annotation(
+        text=f"实际总产量：<b>{period_total_actual:.2f}</b> 吨",
+        xref="paper",
+        yref="paper",
+        x=0,
+        y=1,
+        xanchor="left",
+        yanchor="top",
+        showarrow=False,
+        font=dict(size=13),
     )
 
     rank_df = share_df.copy()

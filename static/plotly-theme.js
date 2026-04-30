@@ -104,6 +104,12 @@
       o["scene.yaxis.color"] = d ? "#b5bcc8" : "#647088";
       o["scene.zaxis.color"] = d ? "#b5bcc8" : "#647088";
     }
+    var anns = L.annotations;
+    if (anns && anns.length) {
+      for (var i = 0; i < anns.length; i++) {
+        o["annotations[" + i + "].font.color"] = fc;
+      }
+    }
     try {
       window.Plotly.relayout(gd, o);
     } catch (e) {}
