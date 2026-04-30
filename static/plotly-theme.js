@@ -85,7 +85,10 @@
         o.margin = { l: 52, r: 120, t: 24, b: 56 };
       }
     } else {
-      o.legend = { font: { color: fc } };
+      var leg = L.legend || {};
+      var lf = Object.assign({}, leg.font || {});
+      lf.color = fc;
+      o.legend = Object.assign({}, leg, { font: lf });
     }
 
     if (L.title) o["title.font.color"] = d ? "#eceef3" : "#111318";
