@@ -15,6 +15,7 @@
 - 饼图总产量说明与扇区外侧标签重叠：缩小饼图 `domain`、加大边距、图例移至右侧留白区；明暗主题切换时仅覆盖 `legend.font.color`，保留 Python 中设置的图例位置。
 - 饼图布局：`legend.itemwidth` 设为小于 Plotly 下限（30）会导致 `ValueError`，打开「数据可视化」首页报错 500——已改为合法最小值。
 - 深浅色主题下图例默认白底：在 `plotly-theme.js` 中为图例设透明背景并与纸面同色区一致；饼图服务端布局同步 `legend.bgcolor`/边框为透明以便首帧一致。
+- 移动端竖屏：「各矿产量占比」外侧标签易被 `.plot-wrap` 裁切——饼容器增加 `plot-pie`、窄屏 `overflow: visible` 与安全区内边距；服务端饼图放宽左边距、`automargin`，窄屏时将图例改至底部并扩大 `domain`，宽屏时用 WeakMap 基线复原布局。
 
 ## [1.1.2] - 2026-04-30
 

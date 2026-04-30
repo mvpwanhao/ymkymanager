@@ -142,7 +142,7 @@
   {% endif %}
 
   <h3>各矿产量占比</h3>
-  <div class="plot-wrap">{{ (dash.pie_html or '') | safe }}</div>
+  <div class="plot-wrap plot-pie">{{ (dash.pie_html or '') | safe }}</div>
   <h3>各矿产量柱状</h3>
   <div class="plot-wrap">{{ (dash.bar_html or '') | safe }}</div>
   <h3>日产量趋势</h3>

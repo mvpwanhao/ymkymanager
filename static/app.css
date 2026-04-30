@@ -1212,6 +1212,14 @@ table.data-table {
   border-radius: var(--r-md);
   overflow: hidden;
 }
+@media (max-width: 720px) {
+  .plot-wrap.plot-pie {
+    /* outside 文本在饼图 bbox 左侧时，不要用 hidden 裁切 */
+    overflow: visible;
+    padding-left: max(0.35rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.35rem, env(safe-area-inset-right, 0px));
+  }
+}
 .js-plotly-plot, .plotly-graph-div { max-width: 100% !important; }
 
 /* Plotly 外：pan-y 优先整页滚动，减少误触缩放 */

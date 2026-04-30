@@ -308,13 +308,13 @@ def build_summary_and_charts(
                 textinfo="text",
                 textposition="outside",
                 hovertemplate="%{label}<br>产量: %{value:.2f} 吨<br>占比: %{percent}<extra></extra>",
-                automargin=False,
-                domain=dict(x=[0.02, 0.72], y=[0.06, 0.78]),
+                automargin=True,
+                domain=dict(x=[0.04, 0.70], y=[0.06, 0.78]),
             )
         ]
     )
     pie_fig.update_layout(
-        margin=dict(l=16, r=120, t=56, b=36),
+        margin=dict(l=40, r=120, t=56, b=44),
         legend_title_text="煤矿",
         legend=dict(
             x=1,
