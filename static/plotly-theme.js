@@ -59,10 +59,16 @@
 
     var inTrend = gd.closest && gd.closest(".plot-trend");
     var hasLegend = L.showlegend !== false;
+    var LEGEND_BG_CLEAR = {
+      bgcolor: "rgba(0,0,0,0)",
+      bordercolor: "rgba(0,0,0,0)",
+      borderwidth: 0,
+    };
+
     if (inTrend && hasLegend) {
       var ltitle = legendTitleText(L);
       if (isNarrow()) {
-        o.legend = {
+        o.legend = Object.assign({}, LEGEND_BG_CLEAR, {
           font: { color: fc },
           orientation: "h",
           y: -0.18,
@@ -70,10 +76,10 @@
           x: 0.5,
           xanchor: "center",
           title: { text: ltitle, font: { color: fc, size: 12 } },
-        };
+        });
         o.margin = { l: 48, r: 20, t: 20, b: 112 };
       } else {
-        o.legend = {
+        o.legend = Object.assign({}, LEGEND_BG_CLEAR, {
           font: { color: fc },
           orientation: "v",
           y: 1,
@@ -81,14 +87,20 @@
           x: 1.02,
           xanchor: "left",
           title: { text: ltitle, font: { color: fc, size: 12 } },
-        };
+        });
         o.margin = { l: 52, r: 120, t: 24, b: 56 };
       }
     } else {
       var leg = L.legend || {};
       var lf = Object.assign({}, leg.font || {});
       lf.color = fc;
-      o.legend = Object.assign({}, leg, { font: lf });
+      var legNext = Object.assign({}, leg, LEGEND_BG_CLEAR, { font: lf });
+      if (leg.title && typeof leg.title === "object") {
+        legNext.title = Object.assign({}, leg.title, {
+          font: Object.assign({}, leg.title.font || {}, { color: fc }),
+        });
+      }
+      o.legend = legNext;
     }
 
     if (L.title) o["title.font.color"] = d ? "#eceef3" : "#111318";
