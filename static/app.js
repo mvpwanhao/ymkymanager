@@ -76,6 +76,132 @@
   tick();
   setInterval(tick, 1000);
 
+  /* 全局「载入中」：页面跳转、表单提交、非探测类 fetch（/health 除外） */
+  (function setupGlobalBusyAndFetch() {
+    var busyEl = null;
+    var busyDepth = 0;
+    var revealTimer = null;
+
+    function getBusyEl() {
+      if (!busyEl) busyEl = document.getElementById("ymky-busy");
+      return busyEl;
+    }
+    function clearRevealTimer() {
+      if (revealTimer !== null) {
+        clearTimeout(revealTimer);
+        revealTimer = null;
+      }
+    }
+    function revealBusy() {
+      var el = getBusyEl();
+      if (!el || busyDepth <= 0) return;
+      el.classList.remove("ymky-busy--hidden");
+      el.setAttribute("aria-hidden", "false");
+      try {
+        document.body.setAttribute("aria-busy", "true");
+      } catch (_) {}
+    }
+    function ymkyBusyEnter(opts) {
+      opts = opts || {};
+      busyDepth++;
+      if (busyDepth !== 1) return;
+      clearRevealTimer();
+      if (opts.immediate) {
+        revealBusy();
+      } else {
+        revealTimer = setTimeout(revealBusy, 140);
+      }
+    }
+    function ymkyBusyLeave() {
+      busyDepth = Math.max(0, busyDepth - 1);
+      clearRevealTimer();
+      var el = getBusyEl();
+      if (busyDepth === 0) {
+        if (el) {
+          el.classList.add("ymky-busy--hidden");
+          el.setAttribute("aria-hidden", "true");
+        }
+        try {
+          document.body.removeAttribute("aria-busy");
+        } catch (_) {}
+      }
+    }
+    window.__ymkyBusyReset = function () {
+      busyDepth = 0;
+      clearRevealTimer();
+      var el = getBusyEl();
+      if (el) {
+        el.classList.add("ymky-busy--hidden");
+        el.setAttribute("aria-hidden", "true");
+      }
+      try {
+        document.body.removeAttribute("aria-busy");
+      } catch (_) {}
+    };
+    window.addEventListener("pageshow", function () {
+      window.__ymkyBusyReset();
+    });
+
+    function isHealthProbe(input) {
+      try {
+        var u = "";
+        if (typeof input === "string") u = input;
+        else if (input && typeof input === "object" && "url" in input) u = String(input.url);
+        else return false;
+        var path = new URL(u, window.location.origin).pathname;
+        return path === "/health" || path.endsWith("/health");
+      } catch (e) {
+        return false;
+      }
+    }
+
+    var origFetch = window.fetch.bind(window);
+    window.__ymkyOrigFetch = origFetch;
+    window.fetch = function (input, init) {
+      if (isHealthProbe(input)) {
+        return origFetch(input, init);
+      }
+      ymkyBusyEnter({});
+      return origFetch(input, init).finally(function () {
+        ymkyBusyLeave();
+      });
+    };
+
+    document.addEventListener(
+      "click",
+      function (ev) {
+        if (ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+        if (typeof ev.button === "number" && ev.button !== 0) return;
+        var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+        if (!a) return;
+        if (a.getAttribute("data-no-global-busy") != null) return;
+        var hrefRaw = (a.getAttribute("href") || "").trim();
+        if (!hrefRaw || hrefRaw.charAt(0) === "#" || hrefRaw.indexOf("javascript:") === 0) return;
+        if (a.target === "_blank" || a.getAttribute("download") != null) return;
+        var abs;
+        try {
+          abs = new URL(a.href);
+        } catch (e2) {
+          return;
+        }
+        if (abs.origin !== window.location.origin) return;
+        ymkyBusyEnter({ immediate: true });
+      },
+      true
+    );
+
+    document.addEventListener(
+      "submit",
+      function (ev) {
+        var form = ev.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (form.getAttribute("data-no-global-busy") != null) return;
+        ymkyBusyEnter({ immediate: true });
+      },
+      true
+    );
+  })();
+
   /* data-loading：防重复提交；disabled 推迟到下一 tick，避免漏掉 submitter 的 name/value */
   document.addEventListener("submit", function (ev) {
     var form = ev.target;
@@ -231,14 +357,12 @@
     });
   })();
 
-  /* /health 探测；可见性控制轮询频率 */
+  /* /health 探测；无顶栏页也通过事件触发断网弹窗（请求走原生 fetch，不经全局 Busy） */
   (function setupNetStatus() {
     var pill = document.getElementById("net-status");
-    if (!pill) return;
-    var dotEl = pill.querySelector(".net-dot");
-    var labelEl = pill.querySelector(".net-label");
+    var labelEl = pill ? pill.querySelector(".net-label") : null;
 
-    var INTERVAL_OK   = 20000;
+    var INTERVAL_OK = 20000;
     var INTERVAL_WARN = 10000;
     var INTERVAL_FAIL = 5000;
     var INTERVAL_MAX_BACKOFF = 30000;
@@ -250,20 +374,48 @@
     var inflight = null;
     var consecutiveFails = 0;
 
+    var origFetchHealth =
+      typeof window.__ymkyOrigFetch === "function" ? window.__ymkyOrigFetch : window.fetch.bind(window);
+
+    function emitHealth(state, text, rtt, fails) {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("ymky-net-health", {
+            detail: {
+              state: state,
+              label: text,
+              rtt: rtt == null ? null : rtt,
+              consecutiveFails: typeof fails === "number" ? fails : consecutiveFails,
+            },
+          })
+        );
+      } catch (_) {}
+    }
+
     function fmtClock(d) {
-      function p(n) { return String(n).padStart(2, "0"); }
+      function p(n) {
+        return String(n).padStart(2, "0");
+      }
       return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
     }
+
     function setState(state, text, rtt) {
-      pill.dataset.state = state;
-      if (labelEl) labelEl.textContent = text;
-      var when = fmtClock(new Date());
-      var rttPart = (rtt == null) ? "" : (" · 延迟 " + Math.round(rtt) + " ms");
-      pill.title = "上次检测 " + when + rttPart;
+      var failsEmit = state === "offline" ? consecutiveFails : 0;
+      if (pill) {
+        pill.dataset.state = state;
+        if (labelEl) labelEl.textContent = text;
+        var when = fmtClock(new Date());
+        var rttPart = rtt == null ? "" : " · 延迟 " + Math.round(rtt) + " ms";
+        pill.title = "上次检测 " + when + rttPart;
+      }
+      emitHealth(state, text, rtt, failsEmit);
     }
 
     function schedule(ms) {
-      if (timer) { clearTimeout(timer); timer = null; }
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
       if (document.hidden) return;
       timer = setTimeout(check, ms);
     }
@@ -281,51 +433,126 @@
         schedule(INTERVAL_WARN);
       }
     }
+
     function onFailure() {
       consecutiveFails += 1;
       setState("offline", "连不上服务", null);
-      var ms = consecutiveFails <= 3
-        ? INTERVAL_FAIL
-        : Math.min(INTERVAL_FAIL * Math.pow(2, consecutiveFails - 3), INTERVAL_MAX_BACKOFF);
+      var ms =
+        consecutiveFails <= 3 ? INTERVAL_FAIL : Math.min(INTERVAL_FAIL * Math.pow(2, consecutiveFails - 3), INTERVAL_MAX_BACKOFF);
       schedule(ms);
     }
 
     function check() {
-      /* 不依赖 navigator.onLine：部分手机在 WiFi 下会误报为 false，导致永远红灯 */
-      if (inflight) { try { inflight.abort(); } catch (_) {} }
-      var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+      /* 不依赖 navigator.onLine：部分手机在 WiFi 下会误报 */
+      if (inflight) {
+        try {
+          inflight.abort();
+        } catch (_) {}
+      }
+      if (pill) {
+        pill.dataset.state = "checking";
+        if (labelEl) labelEl.textContent = "检测中…";
+      }
+      emitHealth("checking", "检测中…", null, 0);
+
+      var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
       inflight = ctrl;
       var timeoutId = setTimeout(function () {
-        if (ctrl) { try { ctrl.abort(); } catch (_) {} }
+        if (ctrl) {
+          try {
+            ctrl.abort();
+          } catch (_) {}
+        }
       }, FETCH_TIMEOUT);
-      var t0 = (performance && performance.now) ? performance.now() : Date.now();
+      var t0 = performance && performance.now ? performance.now() : Date.now();
       var url = "/health?t=" + Math.floor(t0);
       var opts = { method: "GET", cache: "no-store", credentials: "same-origin" };
       if (ctrl) opts.signal = ctrl.signal;
-      fetch(url, opts).then(function (resp) {
-        clearTimeout(timeoutId);
-        inflight = null;
-        var rtt = ((performance && performance.now) ? performance.now() : Date.now()) - t0;
-        if (!resp.ok) { onFailure(); return; }
-        onSuccess(rtt);
-      }).catch(function () {
-        clearTimeout(timeoutId);
-        inflight = null;
-        onFailure();
-      });
+      origFetchHealth(url, opts)
+        .then(function (resp) {
+          clearTimeout(timeoutId);
+          inflight = null;
+          var rtt = (performance && performance.now ? performance.now() : Date.now()) - t0;
+          if (!resp.ok) {
+            onFailure();
+            return;
+          }
+          onSuccess(rtt);
+        })
+        .catch(function () {
+          clearTimeout(timeoutId);
+          inflight = null;
+          onFailure();
+        });
     }
 
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) {
-        if (timer) { clearTimeout(timer); timer = null; }
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
       } else {
         check();
       }
     });
-    window.addEventListener("online",  function () { check(); });
-    window.addEventListener("offline", function () { onFailure(); });
-    window.addEventListener("pageshow", function () { check(); });
+    window.addEventListener("online", function () {
+      check();
+    });
+    window.addEventListener("offline", function () {
+      onFailure();
+    });
+    window.addEventListener("pageshow", function () {
+      check();
+    });
 
+    window.__ymkyNetHealthCheck = check;
     check();
+  })();
+
+  (function setupReconnectModal() {
+    function onReady(fn) {
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
+      else fn();
+    }
+    onReady(function () {
+      var modal = document.getElementById("ymky-reconnect-modal");
+      if (!modal) return;
+      var retry = document.getElementById("ymky-reconnect-retry");
+
+      function showModal() {
+        modal.removeAttribute("hidden");
+        modal.classList.remove("ymky-modal--hidden");
+        if (retry) {
+          try {
+            retry.focus();
+          } catch (_) {}
+        }
+      }
+      function hideModal() {
+        modal.classList.add("ymky-modal--hidden");
+        modal.setAttribute("hidden", "");
+      }
+
+      window.addEventListener("ymky-net-health", function (ev) {
+        var d = ev.detail || {};
+        if (d.state === "checking") return;
+        if (d.state === "offline" && d.consecutiveFails >= 2) {
+          showModal();
+          return;
+        }
+        if (d.state === "good" || d.state === "fair" || d.state === "slow") {
+          hideModal();
+        }
+      });
+
+      function doRetry(ev) {
+        if (ev) ev.preventDefault();
+        if (typeof window.__ymkyNetHealthCheck === "function") {
+          window.__ymkyNetHealthCheck();
+        }
+      }
+      if (retry) retry.addEventListener("click", doRetry);
+    });
   })();
 })();

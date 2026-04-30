@@ -414,6 +414,122 @@ img, svg { display: inline-block; vertical-align: middle; }
 @media (prefers-reduced-motion: reduce) {
   .net-status .net-dot { animation: none !important; }
 }
+
+/* 全局载入遮罩 */
+.ymky-busy {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  pointer-events: none;
+  transition: opacity var(--t-base) ease, visibility var(--t-base) ease;
+}
+.ymky-busy--hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+.ymky-busy:not(.ymky-busy--hidden) {
+  pointer-events: auto;
+}
+.ymky-busy__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(2px);
+}
+[data-color-mode="dark"] .ymky-busy__backdrop {
+  background: rgba(0, 0, 0, 0.52);
+}
+.ymky-busy__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: min(11rem, 80vw);
+  padding: 1.25rem 1.5rem 1.35rem;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--c-border);
+  background: var(--c-card);
+  box-shadow: var(--shadow-3);
+  font-size: var(--tx-15);
+  font-weight: 600;
+  color: var(--c-text);
+}
+.ymky-busy__text { letter-spacing: 0.03em; }
+.ymky-busy__spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--c-border-strong);
+  border-top-color: var(--c-brand-500);
+  border-radius: 50%;
+  animation: ymky-spin 0.7s linear infinite;
+}
+@keyframes ymky-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ymky-busy__spinner { animation: none; border-top-color: var(--c-brand-500); opacity: 0.85; }
+}
+
+/* 断网重连对话框 */
+.ymky-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  transition: opacity var(--t-base) ease, visibility var(--t-base) ease;
+}
+.ymky-modal--hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.ymky-modal:not(.ymky-modal--hidden) { pointer-events: auto; }
+.ymky-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
+}
+[data-color-mode="dark"] .ymky-modal__backdrop {
+  background: rgba(0, 0, 0, 0.58);
+}
+.ymky-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 21rem;
+  padding: 1.35rem 1.25rem 1.25rem;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--c-border);
+  background: var(--c-card);
+  box-shadow: var(--shadow-3);
+}
+.ymky-modal__title {
+  margin: 0 0 0.55rem;
+  font-size: var(--tx-18);
+  font-weight: 700;
+  color: var(--c-text);
+  line-height: 1.35;
+}
+.ymky-modal__desc {
+  margin: 0 0 1.1rem;
+  font-size: var(--tx-14);
+  color: var(--c-text-soft);
+  line-height: 1.55;
+}
+.ymky-modal__actions { display: flex; justify-content: stretch; gap: 0.5rem; }
+.ymky-modal__actions .btn { flex: 1; justify-content: center; text-align: center; }
+
 @media (max-width: 640px) {
   .net-status .net-label { display: none; }
   .net-status { padding: 0.18rem 0.42rem; }
@@ -1242,6 +1358,7 @@ select#themeSelect::-ms-expand { display: none; }
 /* Print */
 @media print {
   .topbar, .sidebar, .btn, .pill-tabs, form .btn-row { display: none !important; }
+  .ymky-busy, .ymky-modal { display: none !important; }
   body { background: #fff !important; background-image: none !important; background-color: #fff !important; }
   .card { box-shadow: none; border-color: #ccc; }
   .app-footer { border-top-color: #ccc; }

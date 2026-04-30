@@ -34,6 +34,25 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
+  {# 全局载入中与断网提示（由 app.js 控制） #}
+  <div id="ymky-busy" class="ymky-busy ymky-busy--hidden" aria-hidden="true">
+    <div class="ymky-busy__backdrop" aria-hidden="true"></div>
+    <div class="ymky-busy__panel" role="status" aria-live="polite" aria-atomic="true">
+      <span class="ymky-busy__spinner" aria-hidden="true"></span>
+      <span class="ymky-busy__text">载入中…</span>
+    </div>
+  </div>
+  <div id="ymky-reconnect-modal" class="ymky-modal ymky-modal--hidden" role="alertdialog"
+       aria-modal="true" aria-labelledby="ymky-reconnect-title" aria-describedby="ymky-reconnect-desc" hidden>
+    <div class="ymky-modal__backdrop" aria-hidden="true"></div>
+    <div class="ymky-modal__panel">
+      <h2 id="ymky-reconnect-title" class="ymky-modal__title">与服务器的连接已断开</h2>
+      <p id="ymky-reconnect-desc" class="ymky-modal__desc">请检查本机网络或服务状态。系统将自动重试，您也可点击下方按钮立即检测连接。</p>
+      <div class="ymky-modal__actions">
+        <button type="button" class="btn btn-primary" id="ymky-reconnect-retry">重新检测</button>
+      </div>
+    </div>
+  </div>
   <a class="skip-link" href="#main">跳到主内容</a>
   {% block topbar %}
   <header class="topbar">
