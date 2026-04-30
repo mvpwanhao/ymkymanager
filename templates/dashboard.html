@@ -95,7 +95,7 @@
     <input type="hidden" name="period" value="year" />
     <div>
       <label for="stat_year">选择统计年</label>
-      <select id="stat_year" name="stat_year" onchange="this.form.submit()">
+      <select id="stat_year" name="stat_year" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
         {% for o in dash.year_options %}
         <option value="{{ o.value }}" {% if o.value == dash.selected_year %}selected{% endif %}>{{ o.label }}</option>
         {% endfor %}
@@ -112,7 +112,7 @@
     <input type="hidden" name="period" value="month" />
     <div>
       <label for="stat_month">选择统计月</label>
-      <select id="stat_month" name="stat_month" onchange="this.form.submit()">
+      <select id="stat_month" name="stat_month" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
         {% for o in dash.month_options %}
         <option value="{{ o.value }}" {% if o.value == dash.selected_month %}selected{% endif %}>{{ o.label }}</option>
         {% endfor %}
