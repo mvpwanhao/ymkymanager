@@ -139,6 +139,9 @@ crontab -e
 
 ## 本机日常
 
+1. **更新 `CHANGELOG.md`**：写明本次改动的条目（参见仓库根目录该文件开头的约定）。
+2. 提交并推送：
+
 ```powershell
 git add -A
 git commit -m "说明"
