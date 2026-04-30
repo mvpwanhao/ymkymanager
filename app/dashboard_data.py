@@ -323,7 +323,7 @@ def build_summary_and_charts(
             y=0.52,
             yref="paper",
             yanchor="middle",
-            itemwidth=16,
+            itemwidth=30,
             tracegroupgap=2,
         ),
         dragmode=False,
