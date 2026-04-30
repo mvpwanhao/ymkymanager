@@ -75,6 +75,14 @@
   --c-topbar-bg: rgba(255, 255, 255, 0.92);
   --c-placeholder: #a8a59c;
   --c-input-hover-bd: #b8b3a8;
+
+  /* 全局页面背景（与登录页同款：角部柔光 + 点阵 + 淡色椭圆光） */
+  --page-corner-tr: radial-gradient(1000px 450px at 80% -100px, rgba(0, 98, 168, 0.10), transparent 60%);
+  --page-corner-bl: radial-gradient(700px 350px at -10% 110%, rgba(0, 98, 168, 0.08), transparent 60%);
+  --page-mesh-a: radial-gradient(ellipse 100% 58% at 14% -12%, rgba(0, 98, 168, 0.068), transparent 51%);
+  --page-mesh-b: radial-gradient(ellipse 88% 50% at 98% 6%, rgba(0, 74, 128, 0.042), transparent 54%);
+  --page-texture-dots: radial-gradient(rgba(17, 19, 24, 0.04) 1px, transparent 1.55px);
+  --page-texture-dots-size: 21px 21px;
 }
 
 /* Dark: data-color-mode + ymky-theme */
@@ -122,6 +130,12 @@
 
   --c-placeholder: #737984;
   --c-input-hover-bd: #5a616e;
+
+  --page-corner-tr: radial-gradient(1000px 450px at 80% -100px, rgba(74, 159, 230, 0.12), transparent 60%);
+  --page-corner-bl: radial-gradient(700px 350px at -10% 110%, rgba(74, 159, 230, 0.09), transparent 60%);
+  --page-mesh-a: radial-gradient(ellipse 100% 58% at 12% -10%, rgba(74, 159, 230, 0.11), transparent 50%);
+  --page-mesh-b: radial-gradient(ellipse 88% 50% at 100% 4%, rgba(58, 143, 214, 0.062), transparent 54%);
+  --page-texture-dots: radial-gradient(rgba(236, 238, 243, 0.036) 1px, transparent 1.6px);
 }
 
 [data-color-mode="dark"] .data-table tbody tr:hover {
@@ -152,7 +166,21 @@ body {
   font-size: var(--tx-15);
   line-height: 1.55;
   color: var(--c-text);
-  background: var(--c-bg);
+  background-color: var(--c-bg);
+  background-image:
+    var(--page-corner-tr),
+    var(--page-corner-bl),
+    var(--page-texture-dots),
+    var(--page-mesh-a),
+    var(--page-mesh-b);
+  background-size:
+    auto,
+    auto,
+    var(--page-texture-dots-size),
+    100% 100%,
+    100% 100%;
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -213,28 +241,31 @@ img, svg { display: inline-block; vertical-align: middle; }
   overflow: hidden;
 }
 
-/* 品牌双行：公司名略大、系统名略小 */
+/* 品牌组合：统一无衬线，公司名略重、系统名略轻 + 字距区分，避免衬线混搭配色块感 */
 .brand-lockup {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.12em 0.2em;
   min-width: 0;
+  font-family: var(--font-sans);
 }
 .brand-lockup .brand-company {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--c-text);
+  letter-spacing: 0.015em;
 }
 .brand-lockup .brand-system {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--c-text);
+  letter-spacing: 0.06em;
   opacity: 0.88;
-  letter-spacing: 0.01em;
 }
 .brand-lockup .brand-sep {
   font-weight: 500;
   opacity: 0.45;
   user-select: none;
+  letter-spacing: 0;
 }
 
 /* 顶栏：紧凑一行，过长时换行 */
@@ -242,15 +273,15 @@ img, svg { display: inline-block; vertical-align: middle; }
   font-size: var(--tx-13);
   max-width: min(58vw, 22rem);
 }
-.brand-lockup--topbar .brand-company {
-  font-size: 1.08em;
+.brand-lockup--topbar .brand-company,
+.brand-lockup--topbar .brand-system {
+  font-size: 1em;
 }
 .brand-lockup--topbar .brand-system {
-  font-size: 0.94em;
   opacity: 0.9;
 }
 .brand-lockup--topbar .brand-sep {
-  font-size: 0.88em;
+  font-size: 0.92em;
 }
 
 /* 登录 / 选择页：居中、层次更明显 */
@@ -258,17 +289,20 @@ img, svg { display: inline-block; vertical-align: middle; }
   justify-content: center;
   text-align: center;
   margin-bottom: 0.35rem;
+  font-size: var(--tx-18);
+}
+.brand-lockup--hero .brand-company,
+.brand-lockup--hero .brand-system {
+  font-size: 1em;
 }
 .brand-lockup--hero .brand-company {
-  font-size: 1.18rem;
   letter-spacing: 0.02em;
 }
 .brand-lockup--hero .brand-system {
-  font-size: 1.05rem;
   opacity: 0.9;
 }
 .brand-lockup--hero .brand-sep {
-  font-size: 0.95em;
+  font-size: 0.92em;
 }
 .login-title-wrap {
   margin: 0 0 0.35rem;
@@ -311,8 +345,10 @@ img, svg { display: inline-block; vertical-align: middle; }
     max-width: none;
     font-size: var(--tx-12);
   }
-  .brand-lockup--topbar .brand-company { font-size: 1.1em; }
-  .brand-lockup--topbar .brand-system { font-size: 0.92em; }
+  .brand-lockup--topbar .brand-company,
+  .brand-lockup--topbar .brand-system {
+    font-size: 1em;
+  }
   .topbar-logout {
     min-height: 32px;
     padding: 0.2rem 0.5rem;
@@ -981,15 +1017,13 @@ table.data-table {
 .kpi-card .kpi-unit { font-size: 0.7em; color: var(--c-muted); margin-left: 0.15rem; font-weight: 400; }
 
 /* Login */
+/* 登录壳层不铺底，沿用 body 与全站一致的背景 */
 .login-shell {
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 2rem 1rem;
-  background:
-    radial-gradient(1000px 450px at 80% -100px, rgba(0, 98, 168, 0.10), transparent 60%),
-    radial-gradient(700px 350px at -10% 110%, rgba(0, 98, 168, 0.08), transparent 60%),
-    var(--c-bg);
+  background: transparent;
 }
 .login-card {
   width: 100%;
@@ -1192,21 +1226,23 @@ select#themeSelect::-ms-expand { display: none; }
 }
 .app-footer small { display: inline-block; max-width: 64rem; }
 .app-footer .footer-brand {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--c-text);
+  letter-spacing: 0.015em;
 }
 .app-footer .footer-brand-sub {
-  font-weight: 600;
-  font-size: 0.95em;
+  font-weight: 500;
+  font-size: 1em;
   color: var(--c-text);
   opacity: 0.82;
   margin-left: 0.2em;
+  letter-spacing: 0.06em;
 }
 
 /* Print */
 @media print {
   .topbar, .sidebar, .btn, .pill-tabs, form .btn-row { display: none !important; }
-  body { background: #fff; }
+  body { background: #fff !important; background-image: none !important; background-color: #fff !important; }
   .card { box-shadow: none; border-color: #ccc; }
   .app-footer { border-top-color: #ccc; }
 }

@@ -9,6 +9,45 @@
 {% block extra_js %}
 {{ super() }}
 <script src="/static/plotly-theme.js?v={{ asset_version }}" defer></script>
+<script>
+(function () {
+  var KEY = "ymky_visual_scroll";
+  function saveScroll() {
+    try { sessionStorage.setItem(KEY, String(window.scrollY || 0)); } catch (e) {}
+  }
+  var tabs = document.querySelector('.pill-tabs[role="tablist"]');
+  if (tabs) {
+    tabs.addEventListener("click", function (ev) {
+      if (ev.target.closest('a[href*="/go/visual"]')) saveScroll();
+    });
+    var card = tabs.closest(".card");
+    if (card) {
+      card.addEventListener("submit", function (ev) {
+        var f = ev.target;
+        if (f && String(f.method || "get").toLowerCase() === "get" && (f.getAttribute("action") || "/") === "/")
+          saveScroll();
+      });
+    }
+  }
+  var raw;
+  try { raw = sessionStorage.getItem(KEY); } catch (e) { raw = null; }
+  if (raw == null) return;
+  var y = parseInt(raw, 10);
+  if (isNaN(y) || y < 0) {
+    try { sessionStorage.removeItem(KEY); } catch (e) {}
+    return;
+  }
+  try { sessionStorage.removeItem(KEY); } catch (e) {}
+  function toPos() { window.scrollTo(0, y); }
+  toPos();
+  requestAnimationFrame(function () { toPos(); requestAnimationFrame(toPos); });
+  if (document.readyState === "complete")
+    toPos();
+  else
+    window.addEventListener("load", toPos, { once: true });
+  [0, 80, 200, 400].forEach(function (ms) { setTimeout(toPos, ms); });
+})();
+</script>
 {% endblock %}
 {% block content %}
 {% if dash and dash.get('empty') %}
@@ -90,11 +129,11 @@
     <input type="hidden" name="period" value="custom" />
     <div>
       <label for="cstart">开始日期</label>
-      <input type="date" id="cstart" name="start" value="{{ c_start or '' }}" />
+      <input type="date" id="cstart" name="start" max="{{ visual_custom_max_date }}" value="{{ c_start or '' }}" />
     </div>
     <div>
       <label for="cend">结束日期</label>
-      <input type="date" id="cend" name="end" value="{{ c_end or '' }}" />
+      <input type="date" id="cend" name="end" max="{{ visual_custom_max_date }}" value="{{ c_end or '' }}" />
     </div>
     <div class="full-row">
       <button type="submit" class="btn btn-primary inline">应用自定义区间</button>

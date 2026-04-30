@@ -446,11 +446,22 @@ def create_app() -> FastAPI:
             period = request.query_params.get("period", "year")
             ds = request.query_params.get("start")
             de = request.query_params.get("end")
+            today_cap = today_beijing()
             c_start = c_end = None
-            if period == "custom" and ds and de:
+            tpl_start = (ds or "").strip()
+            tpl_end = (de or "").strip()
+            if period == "custom" and tpl_start and tpl_end:
                 try:
-                    c_start = date.fromisoformat(str(ds))
-                    c_end = date.fromisoformat(str(de))
+                    c_start = date.fromisoformat(str(tpl_start))
+                    c_end = date.fromisoformat(str(tpl_end))
+                    if c_start > today_cap:
+                        c_start = today_cap
+                    if c_end > today_cap:
+                        c_end = today_cap
+                    if c_start > c_end:
+                        c_start, c_end = c_end, c_start
+                    tpl_start = c_start.isoformat()
+                    tpl_end = c_end.isoformat()
                 except ValueError:
                     period = "year"
             sy_raw = (request.query_params.get("stat_year") or "").strip()
@@ -473,8 +484,9 @@ def create_app() -> FastAPI:
                     **ctx,
                     "dash": d,
                     "period": period,
-                    "c_start": ds or "",
-                    "c_end": de or "",
+                    "c_start": tpl_start,
+                    "c_end": tpl_end,
+                    "visual_custom_max_date": today_cap.isoformat(),
                 },
             )
         if page == "entry_actual":
