@@ -39,6 +39,7 @@ from app.config import get_settings
 from app.middleware_production import SecurityHeadersMiddleware, StaticCacheMiddleware
 from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP, MINE_LIST
 from app.dashboard_data import build_summary_and_charts, exclude_mines
+from app.release_version import health_version
 from app.report_engine import (
     generate_nybb_report,
     generate_sjcl_report,
@@ -276,7 +277,7 @@ def create_app() -> FastAPI:
     def health() -> JSONResponse:
         s2 = get_settings()
         body: dict[str, object] = {"ok": True, "db": storage_uses_database()}
-        v = (s2.app_version or "").strip()
+        v = health_version(s2.app_version or "")
         if v:
             body["version"] = v
         return JSONResponse(

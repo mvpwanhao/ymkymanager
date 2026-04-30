@@ -139,8 +139,9 @@ crontab -e
 
 ## 本机日常
 
-1. **更新 `CHANGELOG.md`**：写明本次改动的条目（参见仓库根目录该文件开头的约定）。
-2. 提交并推送：
+1. （发版时）**更新 `VERSION`**：`python scripts/bump_version.py patch`（或 `minor` / `major` / `--set x.y.z`）。
+2. **更新 `CHANGELOG.md`**：增加与 `VERSION` / 本次提交一致的条目（见该文件开头约定）。
+3. 提交并推送：
 
 ```powershell
 git add -A

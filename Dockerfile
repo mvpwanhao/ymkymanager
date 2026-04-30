@@ -16,6 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -U pip && \
     pip install --no-cache-dir -r requirements.txt
 
+COPY VERSION .
 COPY app ./app
 COPY templates ./templates
 COPY static ./static

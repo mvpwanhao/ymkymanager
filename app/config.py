@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     ymky_env: str = Field(default="development", validation_alias="YMKY_ENV")
     # 逗号分隔 Host 白名单；空则不做 Host 校验
     trusted_hosts: str = Field(default="", validation_alias="YMKY_TRUSTED_HOSTS")
-    # 可选；暴露于 /health
+    # 可选；暴露于 /health。若留空，则使用仓库 VERSION 文件（前缀 v）。
     app_version: str = Field(default="", validation_alias="YMKY_APP_VERSION")
     # 可选：三类角色密码（来自 .env）
     password_admin: str = Field(default="", validation_alias="YMKY_PASSWORD_ADMIN")

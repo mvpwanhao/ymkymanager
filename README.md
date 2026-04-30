@@ -1,7 +1,13 @@
 ﻿# 云南云煤矿业开发有限公司 · 产销量管理系统
 
 > 内部生产数据填报与经营报送平台  
-> **Birth Release:** `v1.0.0 (Birth)`
+
+## 当前版本与更新日志
+
+- **默认版本号：** 仓库根目录 [`VERSION`](./VERSION)（仅 `MAJOR.MINOR.PATCH` 一行）；接口 [`GET /health`](http://127.0.0.1:8080/health) 返回的 **`version`** 字段默认为该号加 `v` 前缀（例：`VERSION`=`1.1.2` → **`v1.1.2`**）。
+- **环境变量覆盖：** 若 `.env` 中设置了 **`YMKY_APP_VERSION`**，则 `/health` 始终返回该值（临时标注用）；常态化发版可留空，以仓库 `VERSION` 为准。
+- **完整变更记录：** **[CHANGELOG.md](./CHANGELOG.md)**（推送前请务必更新）
+- **递增版本：** `python scripts/bump_version.py patch`（或 `minor`、`major`、`--set x.y.z`），然后编辑 `CHANGELOG.md` 与该次改动一并提交。
 
 ---
 
@@ -92,7 +98,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8080
 - `YMKY_SECRET_KEY`：会话签名密钥（生产必配强随机）
 - `YMKY_ENV`：`development` / `production`
 - `YMKY_TRUSTED_HOSTS`：Host 白名单（逗号分隔，不含端口）
-- `YMKY_APP_VERSION`：健康检查版本字段（例如 `v1.0.0 (Birth)`）
+- `YMKY_APP_VERSION`：可选，覆盖 `/health` 的 `version`；不设时默认读仓库 [`VERSION`](./VERSION)（见文末「当前版本与更新日志」）
 - `YMKY_SESSION_TTL`：会话有效期（秒）
 - `YMKY_PASSWORD_ADMIN`
 - `YMKY_PASSWORD_REPORTER`

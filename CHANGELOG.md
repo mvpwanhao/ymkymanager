@@ -2,7 +2,20 @@
 
 本文档格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-**约定：** 向 `origin`（或团队约定远端）**推送前**，须在本文件写入与本次提交对应的条目（可新增版本号或并入当日版本下的「新增 / 变更 / 修复」），并与 `git commit` 说明一致；勿空推功能改动。
+**约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
+
+## [1.1.2] - 2026-04-30
+
+### 变更
+
+- 版本管理：**`VERSION`** 为默认源码；`/health` 的 `version` 默认 `v{VERSION}`，保留 `.env` 中 **`YMKY_APP_VERSION`** 覆盖能力。
+- 新增 **`scripts/bump_version.py`**：递增 patch/minor/major 或 `--set`。
+
+### 文档
+
+- `README.md`：增加「当前版本与更新日志」入口，正文链向 [`CHANGELOG.md`](./CHANGELOG.md)（便于 Gitee 首页展示）。
+- 《部署同步》中与发版流水线描述对齐。
+
 
 ## [1.1.1] - 2026-04-30
 
