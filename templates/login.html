@@ -5,7 +5,7 @@
   未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
 #}
 {% extends "base.html" %}
-{% block title %}登录 · 云煤矿业{% endblock %}
+{% block title %}登录 · 产销量管理系统{% endblock %}
 {% block topbar %}{% endblock %}
 {% block layout %}
 <div class="login-shell">
@@ -13,8 +13,8 @@
   <div class="login-theme-bar">{% include "_theme_control.html" %}</div>
   <div class="login-card">
     <div class="login-head">
-      <img class="brand-logo" src="/static/logo.png" alt="云煤矿业" />
-      <h1>云煤矿业 · 产销量管理</h1>
+      <img class="brand-logo" src="/static/logo.png" alt="云南云煤矿业开发有限公司" />
+      <h1 class="login-title-wrap">{% with modifier="brand-lockup--hero" %}{% include "_brand_lockup.html" %}{% endwith %}</h1>
       <p class="login-sub">
         {% if step == "identity" %}请选择您的身份{% else %}{{ temp_role }} 身份验证{% endif %}
       </p>

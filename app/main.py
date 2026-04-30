@@ -176,7 +176,7 @@ def _nav_and_page(role: str, reporter_kind: str | None, session: dict) -> tuple[
 def create_app() -> FastAPI:
     s = get_settings()
     app = FastAPI(
-        title="云煤矿业产销量管理",
+        title="云南云煤矿业开发有限公司 · 产销量管理系统",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,

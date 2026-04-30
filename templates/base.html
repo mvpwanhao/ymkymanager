@@ -28,7 +28,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
-  <title>{% block title %}云煤矿业产销量管理{% endblock %}</title>
+  <title>{% block title %}云南云煤矿业开发有限公司 · 产销量管理系统{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css?v={{ asset_version }}" />
   <link rel="icon" type="image/png" href="/static/logo.png" />
   {% block extra_head %}{% endblock %}
@@ -54,10 +54,10 @@
     </button>
     {% endif %}
     <div class="brand">
-      <img class="brand-logo" src="/static/logo.png" alt="云煤矿业" />
+      <img class="brand-logo" src="/static/logo.png" alt="云南云煤矿业开发有限公司" />
       <div class="brand-text">
-        <strong>云煤矿业 · 产销量管理</strong>
-        {% if role %}<small>{{ role }}{% if reporter_kind %} · {{ reporter_kind }}{% endif %}</small>{% endif %}
+        {% with modifier="brand-lockup--topbar" %}{% include "_brand_lockup.html" %}{% endwith %}
+        {% if role %}<small class="brand-role">{{ role }}{% if reporter_kind %} · {{ reporter_kind }}{% endif %}</small>{% endif %}
       </div>
     </div>
     <div class="topbar-end">
@@ -109,7 +109,8 @@
 
   <footer class="app-footer" role="contentinfo">
     <small>
-      © 2026&ndash;2027 宛皓 · 云煤矿业产销量管理系统 ·
+      © 2026&ndash;2027 宛皓 ·
+      <span class="footer-brand">云南云煤矿业开发有限公司 <span class="footer-brand-sub">产销量管理系统</span></span> ·
       仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用 ·
       保留所有权利
     </small>

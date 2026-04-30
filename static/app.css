@@ -202,23 +202,74 @@ img, svg { display: inline-block; vertical-align: middle; }
   flex: 0 0 auto;
   object-fit: contain;
 }
-.brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
-.brand-text strong {
-  font-weight: 600;
-  font-size: var(--tx-15);
-  color: var(--c-text);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 60vw;
-}
-.brand-text small {
+.brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; gap: 0.1rem; }
+.brand-text small,
+.brand-text .brand-role {
   font-weight: 500;
   font-size: var(--tx-12);
   color: var(--c-muted);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+}
+
+/* 品牌双行：公司名略大、系统名略小 */
+.brand-lockup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.12em 0.2em;
+  min-width: 0;
+}
+.brand-lockup .brand-company {
+  font-weight: 600;
+  color: var(--c-text);
+}
+.brand-lockup .brand-system {
+  font-weight: 500;
+  color: var(--c-muted);
+}
+.brand-lockup .brand-sep {
+  font-weight: 500;
+  opacity: 0.45;
+  user-select: none;
+}
+
+/* 顶栏：紧凑一行，过长时换行 */
+.brand-lockup--topbar {
+  font-size: var(--tx-13);
+  max-width: min(58vw, 22rem);
+}
+.brand-lockup--topbar .brand-company {
+  font-size: 1.05em;
+}
+.brand-lockup--topbar .brand-system {
+  font-size: 0.82em;
+}
+.brand-lockup--topbar .brand-sep {
+  font-size: 0.85em;
+}
+
+/* 登录 / 选择页：居中、层次更明显 */
+.brand-lockup--hero {
+  justify-content: center;
+  text-align: center;
+  margin-bottom: 0.35rem;
+}
+.brand-lockup--hero .brand-company {
+  font-size: 1.12rem;
+  letter-spacing: 0.02em;
+}
+.brand-lockup--hero .brand-system {
+  font-size: 0.9rem;
+}
+.brand-lockup--hero .brand-sep {
+  font-size: 0.95em;
+}
+.login-title-wrap {
+  margin: 0 0 0.35rem;
+  font: inherit;
+  font-weight: inherit;
 }
 
 @media (max-width: 768px) {
@@ -252,10 +303,12 @@ img, svg { display: inline-block; vertical-align: middle; }
     grid-column: 1 / -1;
     grid-row: 2;
   }
-  .brand-text strong {
-    font-size: var(--tx-14);
+  .brand-lockup--topbar {
     max-width: none;
+    font-size: var(--tx-12);
   }
+  .brand-lockup--topbar .brand-company { font-size: 1.08em; }
+  .brand-lockup--topbar .brand-system { font-size: 0.8em; }
   .topbar-logout {
     min-height: 32px;
     padding: 0.2rem 0.5rem;
@@ -952,9 +1005,10 @@ table.data-table {
   border-radius: 14px;
   margin-bottom: 0.7rem;
 }
-.login-card h1 {
-  font-size: 1.35rem;
-  margin-bottom: 0.25rem;
+/* 登录页主标题为品牌组合；选类型页为 .login-type-title */
+.login-card .login-type-title {
+  font-size: 1.25rem;
+  margin-bottom: 0.3rem;
 }
 .login-card .login-sub { color: var(--c-muted); font-size: var(--tx-14); }
 .login-roles {
@@ -1133,6 +1187,16 @@ select#themeSelect::-ms-expand { display: none; }
   background: transparent;
 }
 .app-footer small { display: inline-block; max-width: 64rem; }
+.app-footer .footer-brand {
+  font-weight: 600;
+  color: var(--c-text);
+}
+.app-footer .footer-brand-sub {
+  font-weight: 500;
+  font-size: 0.88em;
+  color: var(--c-muted);
+  margin-left: 0.2em;
+}
 
 /* Print */
 @media print {
