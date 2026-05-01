@@ -17,6 +17,7 @@
 - 饼图布局：`legend.itemwidth` 设为小于 Plotly 下限（30）会导致 `ValueError`，打开「数据可视化」首页报错 500——已改为合法最小值。
 - 深浅色主题下图例默认白底：在 `plotly-theme.js` 中为图例设透明背景并与纸面同色区一致；饼图服务端布局同步 `legend.bgcolor`/边框为透明以便首帧一致。
 - 移动端竖屏：「各矿产量占比」外侧标签易被 `.plot-wrap` 裁切——饼容器增加 `plot-pie`、窄屏 `overflow: visible` 与安全区内边距；服务端饼图放宽左边距、`automargin`，窄屏时将图例改至底部并扩大 `domain`，宽屏时用 WeakMap 基线复原布局。
+- Web 桌面：重复填报确认页此前不传 `nav`、主区又受 `max-width:1180px` 限制导致观感拥挤——恢复侧边导航，并让 `main` 在该页铺满内容列、`card--duplicate-confirm` 略增内边距。
 
 ## [1.1.2] - 2026-04-30
 

@@ -724,9 +724,14 @@ main.main, main.wrap {
 }
 @media (min-width: 1024px) {
   main.main, main.wrap { padding: 1.5rem 2rem calc(2rem + var(--safe-b)); max-width: 1180px; }
+  /* 重复填报确认页：铺满主内容列（含侧边栏占位），表格对照更易读 */
+  main.main.main--duplicate-confirm {
+    max-width: none;
+    width: 100%;
+    box-sizing: border-box;
+    padding-inline: clamp(1.25rem, 2.25vw, 2.75rem);
+  }
 }
-
-/* MPA：基线 page-in；View Transitions 下关 main 动画避免与过渡叠化 */
 main.main {
   animation: page-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }

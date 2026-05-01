@@ -114,7 +114,7 @@
     <div class="nav-backdrop" id="navBackdrop" hidden></div>
     {% endif %}
 
-    <main id="main" class="main">
+    <main id="main" class="{% block main_class %}main{% endblock %}">
       {% if flash %}
       <div class="notice-ok" role="status">{{ flash }}</div>
       {% endif %}

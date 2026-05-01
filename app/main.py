@@ -250,6 +250,9 @@ def create_app() -> FastAPI:
                 ex[c] = format_series_as_beijing_display(ex[c])
         kind_label = "实际产量" if kind == "actual" else "能源局产销量"
         submit_path = "/entry/actual/submit" if kind == "actual" else "/entry/energy/submit"
+        role_str = str(request.session.get("role") or "")
+        nav, _session_page = _nav_and_page(role_str, request.session.get("reporter_kind"), request.session)
+        page_here = "entry_actual" if kind == "actual" else "entry_energy"
         return templates.TemplateResponse(
             request,
             "entry_duplicate.html",
@@ -257,8 +260,8 @@ def create_app() -> FastAPI:
                 "request": request,
                 "role": request.session.get("role"),
                 "reporter_kind": request.session.get("reporter_kind"),
-                "nav": [],
-                "page": "",
+                "nav": nav,
+                "page": page_here,
                 "storage_db": storage_uses_database(),
                 "form_error": None,
                 "flash": None,
