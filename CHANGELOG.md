@@ -14,6 +14,7 @@
 ### 文档
 
 - 根目录 **[`AGENTS.md`](./AGENTS.md)**：本地热重载与「仅明确说明后再 push/部署」等协作约定；**`README.md`** 推荐 `uvicorn --reload`；**`scripts/dev.ps1`** 一键启动带热重载的开发服务。
+- **维护说明**：上条及本条《更新日志》中关于「开发与本地」「重复确认取消按钮」等条目，为 **2026-05-01** 对已随 v1.1.3 **一并上线**行为的 **追记**（与同日 `CHANGELOG` 仓库提交一致），不改变 `VERSION`。
 
 ### 修复
 
@@ -21,8 +22,7 @@
 - 饼图布局：`legend.itemwidth` 设为小于 Plotly 下限（30）会导致 `ValueError`，打开「数据可视化」首页报错 500——已改为合法最小值。
 - 深浅色主题下图例默认白底：在 `plotly-theme.js` 中为图例设透明背景并与纸面同色区一致；饼图服务端布局同步 `legend.bgcolor`/边框为透明以便首帧一致。
 - 移动端竖屏：「各矿产量占比」外侧标签易被 `.plot-wrap` 裁切——饼容器增加 `plot-pie`、窄屏 `overflow: visible` 与安全区内边距；服务端饼图放宽左边距、`automargin`，窄屏时将图例改至底部并扩大 `domain`，宽屏时用 WeakMap 基线复原布局。
-- Web 桌面：重复填报确认页此前不传 `nav`、主区又受 `max-width:1180px` 限制导致观感拥挤——恢复侧边导航，并让 `main` 在该页铺满内容列、`card--duplicate-confirm` 略增内边距。
-- 重复填报确认页：**「取消」** 与「仍然追加」同为 **`btn-secondary`** 外观（此前为幽灵按钮）。
+- Web 桌面：重复填报确认页——补回 **`nav`**（与角色一致的侧栏）；**`templates/base.html`** 为 `<main>` 增加 **`{% block main_class %}`**，便于该页挂载 **`main--duplicate-confirm`** 并去掉宽屏 **`max-width:1180px`** 限制，`card--duplicate-confirm` 略增内边距；**「取消」** 与「仍然追加」同为 **`btn-secondary`**（此前取消为幽灵按钮）。
 
 ## [1.1.2] - 2026-04-30
 
