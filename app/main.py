@@ -55,6 +55,8 @@ from app.storage import (
     read_records,
     replace_records_for_mine_date,
     storage_uses_database,
+    verify_actual_submission_visible,
+    verify_energy_submission_visible,
 )
 from app.timeutil import format_series_as_beijing_display, now_str, today_beijing
 
@@ -650,12 +652,28 @@ def create_app() -> FastAPI:
                     },
                 )
 
+        ymky_log = logging.getLogger("ymky")
         if confirm == "replace":
             removed = _safe_replace(act_path, mine, prod_date_iso, new_data)
             save_msg = f"已覆盖：删除旧记录 {removed} 条，写入新记录 1 条"
         else:
             _safe_append(new_data, act_path)
             save_msg = "提交成功" if confirm != "append" else "已追加（保留旧记录）"
+
+        if not verify_actual_submission_visible(act_path, mine, prod_date_iso, prod):
+            ymky_log.error(
+                "实际产量写入后校验失败 path=%s mine=%s date=%s prod=%s db=%s",
+                act_path,
+                mine,
+                prod_date_iso,
+                prod,
+                storage_uses_database(),
+            )
+            request.session["form_error"] = (
+                "保存后校验未通过：未能在台账（数据库/文件中）查到与本次一致的产量记录，本次可能未成功保存。"
+                "请勿以为已提交成功，请重试或联系管理员。"
+            )
+            return RedirectResponse("/", status_code=303)
 
         ok, msg = notify_submit_actual(
             mine=mine, prod_date=pd_, reporter=who, production=prod, note=note
@@ -746,12 +764,29 @@ def create_app() -> FastAPI:
                     },
                 )
 
+        ymky_log = logging.getLogger("ymky")
         if confirm == "replace":
             removed = _safe_replace(en_path, mine, prod_date_iso, new_data)
             save_msg = f"已覆盖：删除旧记录 {removed} 条，写入新记录 1 条"
         else:
             _safe_append(new_data, en_path)
             save_msg = "提交成功" if confirm != "append" else "已追加（保留旧记录）"
+
+        if not verify_energy_submission_visible(en_path, mine, prod_date_iso, p_f, s_f):
+            ymky_log.error(
+                "能源局台账写入后校验失败 path=%s mine=%s date=%s prod=%s sales=%s db=%s",
+                en_path,
+                mine,
+                prod_date_iso,
+                p_f,
+                s_f,
+                storage_uses_database(),
+            )
+            request.session["form_error"] = (
+                "保存后校验未通过：未能在台账中查到与本次产量、销量均一致的记录，本次可能未成功保存。"
+                "请勿以为已提交成功，请重试或联系管理员。"
+            )
+            return RedirectResponse("/", status_code=303)
 
         ok, msg = notify_submit_energy(
             mine=mine, prod_date=pd_, reporter=who, production=p_f, sales=s_f, note=note

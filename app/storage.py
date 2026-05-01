@@ -274,6 +274,49 @@ def find_records_by_mine_date(file_path: str, mine: str, prod_date_iso: str) -> 
     return df.loc[mask].copy()
 
 
+def _numeric_close(a: float, b: float, *, abs_tol: float = 0.02) -> bool:
+    return abs(float(a) - float(b)) <= abs_tol + 1e-9
+
+
+def verify_actual_submission_visible(
+    file_path: str, mine: str, prod_date_iso: str, production_t: float
+) -> bool:
+    """提交后读回：同一煤矿·同一生产日期下是否存在与本次产量一致（容差吨）的记录。"""
+    df = find_records_by_mine_date(file_path, mine, prod_date_iso)
+    if df.empty or "产量(吨)" not in df.columns:
+        return False
+    nums = pd.to_numeric(df["产量(吨)"], errors="coerce")
+    for v in nums:
+        if pd.isna(v):
+            continue
+        if _numeric_close(float(v), production_t):
+            return True
+    return False
+
+
+def verify_energy_submission_visible(
+    file_path: str,
+    mine: str,
+    prod_date_iso: str,
+    production_t: float,
+    sales_t: float,
+) -> bool:
+    """提交后读回：同上，且产量、销量均与本次一致（同行的两列）。"""
+    df = find_records_by_mine_date(file_path, mine, prod_date_iso)
+    if df.empty:
+        return False
+    if "产量(吨)" not in df.columns or "销量(吨)" not in df.columns:
+        return False
+    for _, row in df.iterrows():
+        p = pd.to_numeric(row.get("产量(吨)"), errors="coerce")
+        s = pd.to_numeric(row.get("销量(吨)"), errors="coerce")
+        if pd.isna(p) or pd.isna(s):
+            continue
+        if _numeric_close(float(p), production_t) and _numeric_close(float(s), sales_t):
+            return True
+    return False
+
+
 def replace_records_for_mine_date(
     file_path: str, mine: str, prod_date_iso: str, df_new: pd.DataFrame
 ) -> int:
