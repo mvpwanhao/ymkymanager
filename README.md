@@ -69,7 +69,9 @@
 ```powershell
 python -m pip install -r requirements.txt
 copy .env.example .env
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8080
+# 日常开发建议使用 --reload（改代码保存后进程自动重启）
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
+# 等价： .\scripts\dev.ps1
 ```
 
 访问：
