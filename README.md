@@ -79,6 +79,8 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 - `http://127.0.0.1:8080`
 - `http://127.0.0.1:8080/health`
 
+开发与自动化助手在本仓库的执行约定（热重载、何时部署等）：[`AGENTS.md`](./AGENTS.md)。
+
 ---
 
 ## 数据与模板
