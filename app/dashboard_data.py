@@ -390,7 +390,13 @@ def build_summary_and_charts(
         mine_daily_pivot = mine_daily_pivot.sort_index()
         ts_index = pd.DatetimeIndex(mine_daily_pivot.index)
         years = ts_index.year
-        tickfmt = "%Y-%m-%d" if years.min() != years.max() else "%m-%d"
+        tickfmt_traces = "%Y-%m-%d" if years.min() != years.max() else "%m-%d"
+        span_days = max(1, (end_date - start_date).days + 1)
+        pad_end_ts = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+        x_range_start = pd.Timestamp(start_date)
+        show_daily_ticks = span_days <= 45
+        show_point_text = span_days <= 31
+        scatter_mode = "lines+markers+text" if show_point_text else "lines+markers"
         trend_fig = go.Figure()
         for mine_name in mine_daily_pivot.columns:
             s = mine_daily_pivot[mine_name]
@@ -402,8 +408,8 @@ def build_summary_and_charts(
                     x=xs,
                     y=ys,
                     name=mine_name,
-                    mode="lines+markers+text",
-                    text=text_vals,
+                    mode=scatter_mode,
+                    text=text_vals if show_point_text else None,
                     textposition="top center",
                     textfont=dict(size=9),
                     line=dict(width=2.4),
@@ -414,19 +420,30 @@ def build_summary_and_charts(
         trend_fig.update_layout(
             xaxis_title="日期",
             yaxis_title="产量(吨)",
-            margin=dict(l=20, r=20, t=20, b=20),
+            margin=dict(l=20, r=24, t=24, b=96 if not show_daily_ticks else 56),
             legend_title_text="煤矿",
             legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
             colorway=list(_PLOT_COLORWAY),
+            xaxis=dict(automargin=True),
         )
-        pad_end = pd.Timestamp(end_date) + pd.Timedelta(days=1)
-        trend_fig.update_xaxes(
-            type="date",
-            tickformat=tickfmt,
-            range=(pd.Timestamp(start_date), pad_end),
-            tick0=pd.Timestamp(start_date),
-            dtick=86400000.0,
-        )
+        if show_daily_ticks:
+            trend_fig.update_xaxes(
+                type="date",
+                tickformat=tickfmt_traces,
+                range=(x_range_start, pad_end_ts),
+                tick0=x_range_start,
+                dtick=86400000.0,
+            )
+        else:
+            trend_fig.update_xaxes(
+                type="date",
+                tickformat="%Y-%m-%d",
+                range=(x_range_start, pad_end_ts),
+                nticks=min(18, max(10, span_days // 28)),
+                tickangle=-50,
+                ticklabelstandoff=4,
+                ticklabeloverflow="hide past domain",
+            )
         _lock_axes(trend_fig)
 
     return {

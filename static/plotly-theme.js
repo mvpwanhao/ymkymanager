@@ -143,7 +143,7 @@
           xanchor: "center",
           title: { text: ltitle, font: { color: fc, size: 12 } },
         });
-        o.margin = { l: 48, r: 20, t: 20, b: 112 };
+        o.margin = { l: 48, r: 20, t: 20, b: 120 };
       } else {
         o.legend = Object.assign({}, LEGEND_BG_CLEAR, {
           font: { color: fc },
@@ -154,7 +154,8 @@
           xanchor: "left",
           title: { text: ltitle, font: { color: fc, size: 12 } },
         });
-        o.margin = { l: 52, r: 120, t: 24, b: 56 };
+        /* 日期轴常为斜刻度；年度视图下边距过小会挤成一坨文字 */
+        o.margin = { l: 52, r: 120, t: 24, b: 96 };
       }
     } else if (inPie && hasLegend && isNarrow()) {
       tracePatch = { domain: [{ x: [0.06, 0.94], y: [0.34, 0.86] }] };
