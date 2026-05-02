@@ -48,7 +48,7 @@
 - **Data Layer:** pandas, openpyxl
 - **Storage Mode:** Excel（默认）/ PostgreSQL（可选）
 - **Process:** systemd（生产常驻）
-- **External Access:** Cloudflare Tunnel（无公网 IP 场景）
+- **External Access:** SakuraFrp Docker 启动器（`docker-compose.yml` + `docs/SAKURA_TUNNEL.md`，替代原 Cloudflare Tunnel）
 
 ---
 
@@ -124,7 +124,8 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 
 - 部署同步：`docs/DEPLOY_SYNC.md`
 - Docker 部署：`docs/DOCKER.md`
-- Cloudflare Tunnel：`docs/CLOUDFLARE_TUNNEL.md`
+- SakuraFrp（外网穿透）：`docs/SAKURA_TUNNEL.md`
+- Cloudflare Tunnel（历史）：`docs/CLOUDFLARE_TUNNEL.md`
 
 ---
 
@@ -135,9 +136,9 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 systemctl status ymky --no-pager
 journalctl -u ymky -n 100 --no-pager
 
-# Tunnel 服务（如启用）
-systemctl status cloudflared --no-pager
-journalctl -u cloudflared -n 100 --no-pager
+# SakuraFrp 穿透（Docker）
+docker compose --profile natfrp ps
+docker logs --tail 50 sakurafrp
 
 # 健康检查
 curl -s http://127.0.0.1:8080/health
@@ -151,7 +152,7 @@ curl -s http://127.0.0.1:8080/health
 - 使用强随机 `YMKY_SECRET_KEY`
 - 配置 `YMKY_TRUSTED_HOSTS` 防止 Host 头滥用
 - 定期备份 `data/`（或数据库）
-- Cloudflare Token 泄露后应立即轮换
+- SakuraNat `NATFRP_TOKEN` / 面板密码泄露后立即在面板重置与轮换 `.env`
 - 生产环境仅保留 systemd 进程，不并行手工 `nohup` 进程
 
 ---

@@ -1,5 +1,8 @@
-# 局域网访问：浏览器打开 http://<小主机局域网IP>:8080
-# 若在 .env 中设置了 YMKY_TRUSTED_HOSTS，须包含该机 IP（不含端口），例如：192.168.14.222,localhost
+# 局域网：http://<宿主机局域网IP>:8080
+# 若在 .env 中设置了 YMKY_TRUSTED_HOSTS，须包含访问时用到的 Host（不含端口）。
+#
+# SakuraFrp 启动器（profile natfrp）：需在 .env 配置 NATFRP_TOKEN（见 docs/SAKURA_TUNNEL.md）。
+# 生产可先写 COMPOSE_PROFILES=natfrp ，再 docker compose up -d（cron 脚本即可不带 --profile）。
 
 services:
   ymky:
@@ -32,3 +35,21 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  sakurafrp:
+    container_name: sakurafrp
+    image: natfrp.com/launcher
+    pull_policy: always
+    restart: unless-stopped
+    profiles: ["natfrp"]
+    network_mode: host
+    depends_on:
+      ymky:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      # Sakura 面板「用户信息」中的访问密钥；未填写时拉起会失败（见文档）
+      NATFRP_TOKEN: ${NATFRP_TOKEN:-}
+    volumes:
+      # 持久化 launcher 配置（证书、远程管理等）；勿提交仓库（见 .gitignore）
+      - ./natfrp:/run

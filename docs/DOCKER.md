@@ -118,4 +118,4 @@ docker compose exec ymky bash   # 进容器 Shell（服务名 ymky）
 
 ---
 
-之后若要 **Cloudflare Tunnel** 指向本服务，仍可让隧道连接到 **`http://127.0.0.1:8080`**（见 `docs/CLOUDFLARE_TUNNEL.md`），与安全策略一致：`uvicorn` 不直接向公网暴露，由隧道收口。
+外网穿透：优先使用 **SakuraFrp 启动器容器**（`docker-compose.yml` 中 **`sakurafrp`**，见 **`docs/SAKURA_TUNNEL.md`**）；隧道本地目标 **`127.0.0.1:8080`**。历史方案 Cloudflare Tunnel 说明见 **`docs/CLOUDFLARE_TUNNEL.md`**。

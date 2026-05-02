@@ -1,4 +1,8 @@
-# 使用 Cloudflare Tunnel 暴露本机服务
+# 使用 Cloudflare Tunnel 暴露本机服务（历史文档）
+
+> **当前推荐：** 本项目生产外网穿透已改用 **SakuraFrp + Docker**，详见 **[`SAKURA_TUNNEL.md`](./SAKURA_TUNNEL.md)**。若宿主机曾启用 **`cloudflared`** systemd，迁移后执行：`sudo systemctl disable --now cloudflared`。
+>
+> 以下内容保留作 Cloudflare 方案参考。
 
 本应用设计为监听 **本机回环地址**，由 [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) 在 Cloudflare 边缘终止 TLS，避免在路由器上做端口映射。
 
