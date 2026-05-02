@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-05-02
+
+### 修复
+
+- **`GET /export/visual-production.xlsx`**：导出失败时不再 **303** 跳回可视化页（带 `download` 的浏览器常误报「下载失败」且无错误正文）；改为 **`400`** **`text/plain`** 返回具体说明，同时写入 **`flash`**、**`logging`** 便于排障。
+
+### 文档
+
+- **`docs/CLOUDFLARE_TUNNEL.md`**：增补外网导出 Excel/Kaleido 较慢及 **524/522** 类网关超时的简略说明。
+
 ## [1.2.0] - 2026-05-02
 
 ### 新增

@@ -137,6 +137,10 @@ cloudflared tunnel run ymky-coal
 
 若隧道已通但浏览器报 **`400`/`Invalid host header`**：检查 **`YMKY_TRUSTED_HOSTS`** 是否包含 **`ymky.haolab.top`**（无端口）。
 
+### ⑤ 「导出 Excel」外网变慢或网关超时
+
+`/export/visual-production.xlsx` 会在服务端用 **Plotly + Kaleido** 连续生成多张 **PNG** 再写入 xlsx；**单次请求可能比打开普通页面慢很多**。若在 Cloudflare 代理下出现 **`524`** / **`522`** 或长时间无响应后失败，可先 **局域网直连**同一路径判断是否仅为边缘超时。**下载失败且无说明**（旧行为为 **303** 跳转）时已在应用侧改为 **`400`** 与 **纯文本错误说明**便于排障。
+
 ---
 
 ## 9. 换新隧道（旧隧道排查成本高时）

@@ -415,10 +415,15 @@ def create_app() -> FastAPI:
             return RedirectResponse("/login", status_code=303)
         blob, ascii_n, utf_n, err = try_visual_export_bytes(request)
         if err or not blob:
-            request.session["flash"] = err or "导出失败。"
-            qs = request.url.query
-            dest = f"/?{qs}" if qs else "/"
-            return RedirectResponse(dest, status_code=303)
+            msg = err or "导出失败。"
+            # 带 HTML download 的请求若收到 303+HTML，浏览器常报「下载失败」且无正文可看；改为 400+纯文本便于排障。
+            request.session["flash"] = msg
+            logging.getLogger(__name__).warning("visual.export.failed role=%s err=%s", role, msg)
+            return Response(
+                content=msg.encode("utf-8"),
+                status_code=400,
+                media_type="text/plain; charset=utf-8",
+            )
         cd = content_disposition_attachment(str(ascii_n), str(utf_n))
         return Response(
             content=blob,
