@@ -58,6 +58,14 @@ docker logs sakurafrp
 
 自定义域名（如你已配置 **`ymky.haolab.top`** 的 **CNAME**）：在 Sakura **隧道绑定域名**，与 DNS CNAME 一致后即可通过域名访问。
 
+**关键（否则公网常为 `503` + `Server: SakuraFrp`）：**
+
+1. WebUI **隧道列表**中为 **`ymky.haolab.top`** 这一条使用 **HTTP/HTTPS**（按你在面板创建的隧道类型），**本地 **`127.0.0.1`**、端口 **`8080`**。  
+2. **务必打开隧道卡片右上角「启用」开关**——未启用时宿主上 **`docker exec sakurafrp ps`** 看不到 **`frpc`** 进程。  
+3. 启用后自检：`curl -sS http://127.0.0.1:8080/health` 仍 **`ok`**，`docker exec sakurafrp ps` 含 **`frpc`**。
+
+若在 WebUI 已登录 Sakura，建议将访问密钥写入 **`.env` 的 `NATFRP_TOKEN`**（勿向他人泄露），可选用仓库脚本 **`scripts/sync_natfrp_token_to_env.sh`**——在跑着 **`sakurafrp`** 时执行，从容器 **`/run/config.json`** 同步一行到 **`.env`**。
+
 ## 4. `YMKY_TRUSTED_HOSTS`
 
 若在 `.env` 中配置了 **Host 白名单**，必须把浏览器访问域名写入（英文逗号分隔，**不含端口**），例如：
@@ -84,6 +92,7 @@ Compose 已将宿主 **`./natfrp`** 挂载到容器内 **`/run`**，用于保存
 
 | 现象 | 处理 |
 |------|------|
+| **公网 `503`、`Server: SakuraFrp`，本机 `127.0.0.1:8080` 正常** | **隧道开关未启用**或未指向 **`127.0.0.1:8080`**；见上文 **§3**「关键」。 |
 | **`Bind … 7102`** | 宿主已有程序占用 WebUI 端口；关闭冲突进程或按官方手册改监听端口。 |
 | **穿透连上但页面 400 / Invalid host** | 核对 **§4** `YMKY_TRUSTED_HOSTS`。 |
 | **仅 Linux** | macOS / Windows Docker 不推荐 `network_mode: host`，请改用官方桌面启动器或非 Docker `frpc`。 |
