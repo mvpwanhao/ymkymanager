@@ -9,6 +9,7 @@
 ### 运维
 
 - Docker Compose 可选服务 **`sakurafrp`**（启动器 **`natfrp.com/launcher`**、`container_name: sakurafrp`、`network_mode: host`、`profiles: natfrp`）；说明见 **`docs/SAKURA_TUNNEL.md`**，`.env.example` 增补 **`NATFRP_TOKEN`** / **`COMPOSE_PROFILES`**。
+- **`docs/SAKURA_TUNNEL.md`**：明确 **HTTP(S) 隧道 vs TCP 隧道**；裸域名建站须 **HTTP/HTTPS** 并绑定域名，否则易出现公网 **`503`**（与 Docker 无关）。
 
 ## [1.1.3] - 2026-04-30
 
