@@ -21,6 +21,25 @@ sudo usermod -aG docker "$USER"
 
 验证：`docker --version`、`docker compose version`
 
+也可在本仓库根目录用脚本替代手工 apt（需 root）：
+
+```bash
+sudo bash scripts/server_install_docker_ubuntu.sh
+```
+
+## 1b. 从 systemd + venv 迁到 Docker（服务器已在跑旧方式）
+
+假定项目仍在例如 `/home/wanhao/ymky_manager`，且 `.env`、`data/` 已就绪：
+
+1. 拉最新代码：`git pull origin main`
+2. 一次性安装 Docker：`sudo bash scripts/server_install_docker_ubuntu.sh`
+3. **同一 SSH** 会话内激活 docker 组成员：`newgrp docker`（或重新登录 SSH）
+4. 停止旧服务并用 Compose 拉起：`bash scripts/server_migrate_systemd_to_docker.sh`
+5. 若使用 cron 自动更新，把任务里的 `server_git_pull_deploy.sh` 改成 `server_git_pull_deploy_docker.sh`
+6. 本机手动触发远端更新（PowerShell）：`.\scripts\deploy_via_git.ps1 -Docker -SshTarget wanhao@<IP>`
+
+`ymky` systemd 单元会在迁移时被 `disable`；勿与容器同时监听 `8080`。
+
 ## 2. 放置项目与小主机对齐
 
 任选其一：
