@@ -83,6 +83,12 @@ docker compose ps
 
 应用在容器内监听 `0.0.0.0:8080`，映射为 **`主机:8080`**。
 
+**Kaleido 导出 Excel（图表 PNG）**：`docker-compose.yml` 为 **`ymky`** 配置了 **`shm_size: "512mb"`**（过小会导致内置 Chromium 截图失败）。变更 Compose 后须 **`docker compose up -d --force-recreate ymky`** 才会应用到已存在容器。
+
+### 4b. 构建缓存：会不会每次部署都重装 apt / pip？
+
+**一般不会。** BuildKit/经典构建都会**按层缓存**：只要 **`Dockerfile` 里靠前的行**、**`requirements.txt`**、会影响 build 的 **`docker-compose.yml` 片段**等没有变，前面的 **`RUN apt-get`、`RUN pip install`** 层会直接复用，**不会每次都重新下载安装**。你频繁改 **`app/`、`templates/`、`static/`** 时，通常只会重建最上面几层。若使用了 **`docker compose build --no-cache`**、删掉缓存或改过「更靠前」的 `Docker`，才会整段重跑。
+
 ## 5. 局域网访问
 
 同一 LAN 的设备浏览器打开：

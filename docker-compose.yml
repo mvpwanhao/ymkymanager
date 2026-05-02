@@ -27,6 +27,8 @@ services:
     volumes:
       # 台账 Excel、报表模板 sjcl.xlsx / nybb.xlsx、runtime 登录与密码等均落在此目录
       - ./data:/app/data
+    # Kaleido 内置 Chromium 默认共享内存偏小易崩，导出 PNG 需足够 shm
+    shm_size: "512mb"
     healthcheck:
       test:
         [

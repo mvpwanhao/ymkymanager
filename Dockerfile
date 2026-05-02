@@ -22,6 +22,8 @@ RUN set -eux; \
     done; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
+    at-spi2-core \
+    dbus \
     gcc \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -34,6 +36,7 @@ RUN set -eux; \
     libgbm1 \
     libglib2.0-0 \
     libgomp1 \
+    libgtk-3-0 \
     libnspr4 \
     libnss3 \
     libpango-1.0-0 \

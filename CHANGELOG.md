@@ -6,33 +6,28 @@
 
 ## [Unreleased]
 
-## [1.2.4] - 2026-05-02
+## [1.2.1] - 2026-05-02
+
+> **版本说明：** **`1.2.0`** 之后的累计修订统一以 **`1.2.1`** 对外发版（不再递增 1.2.2–1.2.4）。
+
+### 修复
+
+- **`GET /export/visual-production.xlsx`**：导出失败时不再 **303** 跳回可视化页（带 `download` 的浏览器常报「下载失败」且无正文）；改为 **`400`** **`text/plain`**，并 **`Content-Disposition`** 建议使用 **`.txt`**，同时 **`flash`** 与 **`logging`** 便于排障。
+- 导出页面：用 **`fetch` + Blob** 仅在 **`Content-Type` 为 xlsx** 时触发下载；若为 HTML / 纯文本错误则 **`alert`**，避免把非表格内容存成 **`visual-production.xlsx`** 导致 Excel 报「格式无效」。
+- **Kaleido / Chromium（Excel 内嵌图表 PNG）**：
+  - **`Dockerfile`**：补充 **`libgbm1`、`libatk*`、`libdrm2`、`libcups2`、`libxcomposite1`、`libasound2`** 等 headless 常用库，并增加 **`dbus`、`at-spi2-core`、`libgtk-3-0`**。
+  - **`docker-compose.yml`**：**`ymky`** 服务设置 **`shm_size: "512mb"`**（默认 **64MB** 时内置 Chromium 易崩溃）。
+- 导出报错文案：提示重建镜像、`--force-recreate` 及查 **`docker logs`**。
 
 ### 运维
 
-- **Dockerfile**：构建阶段 **`apt`** 在 **`apt-get update`** 前将 **`debian.sources` / `sources.list`** 中的 **`deb.debian.org`**、**`security.debian.org`** 替换为 **清华大学 Debian 镜像**（`https://mirrors.tuna.tsinghua.edu.cn`），便于国内慢网或国际出口拥塞时更快完成镜像层；PyPI 仍由 **`PIP_INDEX_URL`**（默认清华）控制。
-
-## [1.2.3] - 2026-05-02
-
-### 修复
-
-- **Docker**：为 Plotly **`kaleido` 导出 PNG** 增补 Chromium headless 常见缺失系统库（如 **`libgbm1`、`libatk*`、`libdrm2`、`libcups2`、`libxcomposite1`、`libdbus-1-3`、`libasound2`** 等），避免容器内需 `/export/visual-production.xlsx` 时出现「导出图表快照失败（需 Kaleido/Chromium）」。
-
-## [1.2.2] - 2026-05-02
-
-### 修复
-
-- 数据可视化：**导出 Excel** 在非 xlsx 响应（报错正文、登录页/HTML、网关页面）时被浏览器命名为 **`visual-production.xlsx`**，用 Excel 打开即报「格式或扩展名无效」。现改为：**失败响应带 `.txt` 的 `Content-Disposition`**（降低误当作表格打开）；页内通过 **`fetch` + Blob** 仅在 **`Content-Type` 为 xlsx** 时触发本地下载，否则 **`alert` 展示说明**（并提示常见为会话失效或 Cloudflare 页）。
-
-## [1.2.1] - 2026-05-02
-
-### 修复
-
-- **`GET /export/visual-production.xlsx`**：导出失败时不再 **303** 跳回可视化页（带 `download` 的浏览器常误报「下载失败」且无错误正文）；改为 **`400`** **`text/plain`** 返回具体说明，同时写入 **`flash`**、**`logging`** 便于排障。
+- **Dockerfile**：**`apt-get update`** 前将 Debian **bookworm / security** 默认源替换为 **清华大学镜像**（`mirrors.tuna.tsinghua.edu.cn`）；**PyPI** 仍由 **`PIP_INDEX_URL`**（Compose 默认为清华）控制。
+- **`scripts/server_git_pull_deploy_docker.sh`**：与 **`docker-compose.yml`**、`Dockerfile` 变更联动时会触发 **`docker compose build`**（见脚本内 **`needs_compose_build`**）。
 
 ### 文档
 
-- **`docs/CLOUDFLARE_TUNNEL.md`**：增补外网导出 Excel/Kaleido 较慢及 **524/522** 类网关超时的简略说明。
+- **`docs/CLOUDFLARE_TUNNEL.md`**：外网导出耗时与 **524/522** 等说明。
+- **`docs/DOCKER.md`**：**`docker compose build` 的中间层缓存**——仅 **`Dockerfile` / `requirements.txt` / 更早层变更**会令 **`apt`/`pip`** 重跑；常改 **`app/`** 时一般会复用已有层，不必每次重装系统包与 Python 依赖。
 
 ## [1.2.0] - 2026-05-02
 
