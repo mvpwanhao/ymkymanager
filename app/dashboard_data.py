@@ -391,9 +391,24 @@ def build_summary_and_charts(
         ts_index = pd.DatetimeIndex(mine_daily_pivot.index)
         years = ts_index.year
         tickfmt_traces = "%Y-%m-%d" if years.min() != years.max() else "%m-%d"
-        span_days = max(1, (end_date - start_date).days + 1)
-        pad_end_ts = pd.Timestamp(end_date) + pd.Timedelta(days=1)
-        x_range_start = pd.Timestamp(start_date)
+        stats_start = pd.Timestamp(start_date)
+        stats_end_exclusive = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+        x_range_start = stats_start
+        pad_end_ts = stats_end_exclusive
+        # 「年度」：横轴仅从首条有效日产量起，至最后有数据的日期（不超统计年末、不超今天）。
+        if period == "year":
+            d_first = ts_index.min().date()
+            d_last_data = ts_index.max().date()
+            d_first_eff = max(d_first, start_date)
+            d_last_eff = min(d_last_data, end_date, today)
+            if d_first_eff <= d_last_eff:
+                x_range_start = pd.Timestamp(d_first_eff)
+                pad_end_ts = pd.Timestamp(d_last_eff) + pd.Timedelta(days=1)
+                span_days = max(1, (d_last_eff - d_first_eff).days + 1)
+            else:
+                span_days = max(1, (end_date - start_date).days + 1)
+        else:
+            span_days = max(1, (end_date - start_date).days + 1)
         show_daily_ticks = span_days <= 45
         show_point_text = span_days <= 31
         scatter_mode = "lines+markers+text" if show_point_text else "lines+markers"
