@@ -65,11 +65,64 @@ def _prepare_kaleido_export_env() -> None:
     base = "/tmp/.ymky-kaleido-cache"
     os.makedirs(base, mode=0o700, exist_ok=True)
     os.environ.setdefault("XDG_CACHE_HOME", base)
+    os.environ.setdefault("LANG", "C.UTF-8")
+    os.environ.setdefault("LC_ALL", "C.UTF-8")
+    os.environ.setdefault("FONTCONFIG_PATH", "/etc/fonts")
+
+
+_KALEIDO_EXPORT_CJK_ONCE: bool = False
+
+
+def _ensure_kaleido_png_export_ready() -> None:
+    """
+    Kaleido 0.2.x 使用打包的 Chromium；在部分容器里没有完整 locale / fontconfig 时，
+    Plotly SVG 文本会退化成「豆腐块」。此处统一：可写缓存、fontconfig、locale，
+    并对 v0 Kaleido 按官方 Wiki 增补 Chromium 开关（单次生效）。
+    """
+    global _KALEIDO_EXPORT_CJK_ONCE
+    if _KALEIDO_EXPORT_CJK_ONCE:
+        return
+
+    _prepare_kaleido_export_env()
+
+    mj: int | None = None
+    try:
+        from importlib.metadata import version
+
+        head = version("kaleido").strip().split(".", 1)[0]
+        mj = int(head) if head.isdigit() else None
+    except (OSError, ValueError):
+        mj = None
+
+    if mj is not None and mj >= 1:
+        _KALEIDO_EXPORT_CJK_ONCE = True
+        return
+
+    import plotly.io.kaleido as plkaleido
+
+    scope = getattr(plkaleido, "scope", None)
+    if scope is None:
+        _KALEIDO_EXPORT_CJK_ONCE = True
+        return
+
+    base = tuple(scope.chromium_args or ())
+    extra = (
+        "--single-process",
+        "--font-render-hinting=none",
+    )
+    merged = base
+    for flag in extra:
+        if flag not in merged:
+            merged = merged + (flag,)
+    if merged != base:
+        scope.chromium_args = merged
+
+    _KALEIDO_EXPORT_CJK_ONCE = True
 
 
 def _fig_to_png_bytes(fig: go.Figure, width: int = 980, height: int = 520) -> bytes:
     try:
-        _prepare_kaleido_export_env()
+        _ensure_kaleido_png_export_ready()
         return pio.to_image(fig, format="png", width=width, height=height, scale=2, engine="kaleido")
     except Exception as exc:
         raise RuntimeError(
