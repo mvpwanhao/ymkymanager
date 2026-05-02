@@ -47,6 +47,69 @@
     window.addEventListener("load", toPos, { once: true });
   [0, 80, 200, 400].forEach(function (ms) { setTimeout(toPos, ms); });
 })();
+
+(function () {
+  function pickExportFilename(cd) {
+    var m = /filename\*=UTF-8''([^;\s]+)/i.exec(cd || "");
+    if (m && m[1]) {
+      try { return decodeURIComponent(m[1]); } catch (e) {}
+    }
+    m = /filename="([^"]+)"/i.exec(cd || "");
+    if (m && m[1]) return m[1];
+    return "ymky_visual_export.xlsx";
+  }
+  var btn = document.getElementById("ymky-visual-export");
+  if (!btn || btn.tagName !== "A") return;
+
+  btn.addEventListener("click", function (ev) {
+    if (!window.fetch || !document.createElement) return;
+    var href = btn.getAttribute("href");
+    if (!href || href.startsWith("#")) return;
+    ev.preventDefault();
+
+    btn.setAttribute("aria-busy", "true");
+
+    fetch(href, { credentials: "same-origin", cache: "no-store" })
+      .then(function (r) {
+        var ct = String(r.headers.get("Content-Type") || "").toLowerCase();
+        if (!r.ok) {
+          return r.text().then(function (t) {
+            window.alert(String(t || "导出失败 HTTP " + r.status).slice(0, 4000));
+          });
+        }
+        if (!ct.includes("spreadsheetml")) {
+          return r.text().then(function (t) {
+            window.alert(
+              "拿到的不是 Excel 文件（常为登录失效、Cloudflare/网关页的 HTML）：\n" +
+                String(t).slice(0, 2800),
+            );
+          });
+        }
+        var cd = r.headers.get("Content-Disposition") || "";
+        return r.blob().then(function (blob) {
+          var name = pickExportFilename(cd);
+          var url = URL.createObjectURL(blob);
+          var dl = document.createElement("a");
+          dl.href = url;
+          dl.download = name;
+          dl.rel = "noopener";
+          dl.style.display = "none";
+          document.body.appendChild(dl);
+          dl.click();
+          setTimeout(function () {
+            URL.revokeObjectURL(url);
+            dl.remove();
+          }, 4000);
+        });
+      })
+      .catch(function (e) {
+        window.alert("导出请求失败：" + String(e || "unknown"));
+      })
+      .finally(function () {
+        btn.removeAttribute("aria-busy");
+      });
+  });
+})();
 </script>
 {% endblock %}
 {% block content %}
@@ -90,7 +153,7 @@
     <div class="row" style="gap:0.65rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
       <span class="muted">{{ dash.period_caption if dash and dash.period_caption is defined else '' }}</span>
       {% if dash and dash.empty is defined and not dash.empty %}
-      <a class="btn btn-secondary inline" href="/export/visual-production.xlsx{% if request.url.query %}?{{ request.url.query }}{% endif %}" download>导出 Excel 报表（含图表）</a>
+      <a id="ymky-visual-export" class="btn btn-secondary inline" data-no-global-busy href="/export/visual-production.xlsx{% if request.url.query %}?{{ request.url.query }}{% endif %}">导出 Excel 报表（含图表）</a>
       {% endif %}
     </div>
   </div>

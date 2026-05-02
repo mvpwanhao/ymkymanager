@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from io import StringIO
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import pandas as pd
 from fastapi import FastAPI, Form, Request
@@ -416,13 +416,19 @@ def create_app() -> FastAPI:
         blob, ascii_n, utf_n, err = try_visual_export_bytes(request)
         if err or not blob:
             msg = err or "导出失败。"
-            # 带 HTML download 的请求若收到 303+HTML，浏览器常报「下载失败」且无正文可看；改为 400+纯文本便于排障。
+            # 带 download 的请求若仅以 URL 存盘，会为 .xlsx 名塞入正文或 HTML→Excel 报「格式无效」；附 .txt 的 Content-Disposition 降低误保存。
             request.session["flash"] = msg
             logging.getLogger(__name__).warning("visual.export.failed role=%s err=%s", role, msg)
+            err_ascii = "ymky_visual_export_error.txt"
+            disp_err = (
+                f'attachment; filename="{err_ascii}"; '
+                f"filename*=UTF-8''{quote('云煤矿业_导出失败说明.txt')}"
+            )
             return Response(
                 content=msg.encode("utf-8"),
                 status_code=400,
                 media_type="text/plain; charset=utf-8",
+                headers={"Content-Disposition": disp_err, "Cache-Control": "no-store"},
             )
         cd = content_disposition_attachment(str(ascii_n), str(utf_n))
         return Response(

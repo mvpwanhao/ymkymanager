@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-05-02
+
+### 修复
+
+- 数据可视化：**导出 Excel** 在非 xlsx 响应（报错正文、登录页/HTML、网关页面）时被浏览器命名为 **`visual-production.xlsx`**，用 Excel 打开即报「格式或扩展名无效」。现改为：**失败响应带 `.txt` 的 `Content-Disposition`**（降低误当作表格打开）；页内通过 **`fetch` + Blob** 仅在 **`Content-Type` 为 xlsx** 时触发本地下载，否则 **`alert` 展示说明**（并提示常见为会话失效或 Cloudflare 页）。
+
 ## [1.2.1] - 2026-05-02
 
 ### 修复
