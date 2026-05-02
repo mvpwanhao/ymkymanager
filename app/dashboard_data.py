@@ -58,6 +58,27 @@ _PLOT_COLORWAY: tuple[str, ...] = (
     "#b45309",
 )
 
+# 浏览器用本机字体；Kaleido/Chromium 在无中文字形的 slim 镜像里会显示「方块」。
+# 与 Dockerfile 中 fonts-noto-cjk / fonts-wqy-* 对齐。
+# 文泉驿优先：部分环境下 fontconfig 对 Noto CJK 的族名映射不如 Micro Hei 稳定。
+_PLOT_FONT_FAMILY = (
+    "WenQuanYi Micro Hei, Noto Sans CJK SC, Noto Sans CJK TC, Liberation Sans, sans-serif"
+)
+
+
+def _chart_font_kw(*, size: int | None = None) -> dict[str, Any]:
+    k: dict[str, Any] = {"family": _PLOT_FONT_FAMILY}
+    if size is not None:
+        k["size"] = size
+    return k
+
+
+def _apply_cjk_axes(fig: go.Figure) -> None:
+    """横纵轴标题与刻度字号（Pie 等对隐藏轴无伤；折线/柱状需显式否则常回退到 Latin 字型）。"""
+    kw = _chart_font_kw()
+    fig.update_xaxes(title_font=dict(kw), tickfont=dict(kw))
+    fig.update_yaxes(title_font=dict(kw), tickfont=dict(kw))
+
 
 def _lock_axes(fig: go.Figure) -> None:
     """禁止所有缩放与平移：移动端用单指上下滚动时不会被图表截走。"""
@@ -336,10 +357,14 @@ def build_summary_and_charts(
                 hovertemplate="%{label}<br>产量: %{value:.2f} 吨<br>占比: %{percent}<extra></extra>",
                 automargin=True,
                 domain=dict(x=[0.04, 0.70], y=[0.06, 0.78]),
+                textfont=_chart_font_kw(),
+                outsidetextfont=_chart_font_kw(),
+                insidetextfont=_chart_font_kw(),
             )
         ]
     )
     pie_fig.update_layout(
+        font=_chart_font_kw(size=12),
         margin=dict(l=40, r=120, t=56, b=44),
         legend_title_text="煤矿",
         legend=dict(
@@ -354,6 +379,8 @@ def build_summary_and_charts(
             bgcolor="rgba(0,0,0,0)",
             bordercolor="rgba(0,0,0,0)",
             borderwidth=0,
+            font=_chart_font_kw(size=12),
+            title=dict(font=_chart_font_kw(size=12)),
         ),
         dragmode=False,
         colorway=list(_PLOT_COLORWAY),
@@ -367,8 +394,9 @@ def build_summary_and_charts(
         xanchor="left",
         yanchor="top",
         showarrow=False,
-        font=dict(size=12),
+        font=_chart_font_kw(size=12),
     )
+    _apply_cjk_axes(pie_fig)
 
     rank_df = share_df.copy()
     rank_df["标签"] = rank_df["产量(吨)"].round(0).astype(int).astype(str) + "吨"
@@ -381,10 +409,12 @@ def build_summary_and_charts(
                 textposition="outside",
                 cliponaxis=False,
                 hovertemplate="%{x}<br>产量: %{y:.2f} 吨<extra></extra>",
+                textfont=_chart_font_kw(),
             )
         ]
     )
     bar_fig.update_layout(
+        font=_chart_font_kw(size=12),
         xaxis_title="煤矿",
         yaxis_title="产量(吨)",
         margin=dict(l=20, r=20, t=20, b=20),
@@ -392,6 +422,7 @@ def build_summary_and_charts(
     )
     bar_fig.update_traces(width=0.4)
     _lock_axes(bar_fig)
+    _apply_cjk_axes(bar_fig)
 
     trend_source_df = period_df.copy()
     if "备注" in trend_source_df.columns:
@@ -406,8 +437,16 @@ def build_summary_and_charts(
     )
     if mine_daily.empty:
         trend_fig = go.Figure()
-        trend_fig.add_annotation(text="当前区间无日产量数据", x=0.5, y=0.5, showarrow=False)
+        trend_fig.update_layout(font=_chart_font_kw(size=12))
+        trend_fig.add_annotation(
+            text="当前区间无日产量数据",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=_chart_font_kw(size=14),
+        )
         _lock_axes(trend_fig)
+        _apply_cjk_axes(trend_fig)
     else:
         mine_daily_pivot = mine_daily.pivot(
             index="生产日期", columns="所属煤矿", values="产量(吨)"
@@ -452,18 +491,27 @@ def build_summary_and_charts(
                     mode=scatter_mode,
                     text=text_vals if show_point_text else None,
                     textposition="top center",
-                    textfont=dict(size=9),
+                    textfont=_chart_font_kw(size=9),
                     line=dict(width=2.4),
                     marker=dict(size=6),
                     hovertemplate="%{x|%Y-%m-%d}<br>%{fullData.name}: %{y:.2f} 吨<extra></extra>",
                 )
             )
         trend_fig.update_layout(
+            font=_chart_font_kw(size=12),
             xaxis_title="日期",
             yaxis_title="产量(吨)",
             margin=dict(l=20, r=24, t=24, b=96 if not show_daily_ticks else 56),
             legend_title_text="煤矿",
-            legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+            legend=dict(
+                orientation="v",
+                yanchor="top",
+                y=1,
+                xanchor="left",
+                x=1.02,
+                font=_chart_font_kw(size=12),
+                title=dict(font=_chart_font_kw(size=12)),
+            ),
             colorway=list(_PLOT_COLORWAY),
             xaxis=dict(automargin=True),
         )
@@ -485,6 +533,7 @@ def build_summary_and_charts(
                 ticklabelstandoff=4,
                 ticklabeloverflow="hide past domain",
             )
+        _apply_cjk_axes(trend_fig)
         _lock_axes(trend_fig)
 
     out: dict[str, Any] = {

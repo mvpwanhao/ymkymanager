@@ -21,7 +21,7 @@ BRANCH="${DEPLOY_BRANCH:-main}"
 
 needs_compose_build() {
   git diff --name-only "$1".."$2" 2>/dev/null | grep -qE \
-    '^(Dockerfile|docker-compose\.yml|requirements\.txt|VERSION|app/|templates/|static/)' \
+    '^(Dockerfile|docker-compose\.yml|requirements\.txt|VERSION|app/|templates/|static/|docker/)' \
     || false
 }
 

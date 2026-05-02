@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import io
+import os
 import re
 from datetime import date
 from typing import Any
@@ -59,8 +60,16 @@ def visual_build_kwargs_from_request(request: Request) -> dict[str, Any]:
     }
 
 
+def _prepare_kaleido_export_env() -> None:
+    """Kaleido 子进程写 fontconfig 等缓存；确保可写目录存在，避免选字回退异常。"""
+    base = "/tmp/.ymky-kaleido-cache"
+    os.makedirs(base, mode=0o700, exist_ok=True)
+    os.environ.setdefault("XDG_CACHE_HOME", base)
+
+
 def _fig_to_png_bytes(fig: go.Figure, width: int = 980, height: int = 520) -> bytes:
     try:
+        _prepare_kaleido_export_env()
         return pio.to_image(fig, format="png", width=width, height=height, scale=2, engine="kaleido")
     except Exception as exc:
         raise RuntimeError(

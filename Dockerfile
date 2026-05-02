@@ -7,6 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# 默认 sans-serif 优先 CJK（供 Kaleido 内置 Chromium + fontconfig 选字）
+RUN mkdir -p /etc/fonts/conf.d
+COPY docker/fontconfig/65-ymky-cjk-sans.conf /etc/fonts/conf.d/65-ymky-cjk-sans.conf
+
 # 国内网络：将 bookworm / security 默认源换为清华镜像后再 apt install（含 Kaleido/Chromium 所需系统库）。
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
@@ -32,7 +36,11 @@ RUN set -eux; \
     libcups2 \
     libdbus-1-3 \
     libdrm2 \
+    fontconfig \
     fonts-liberation \
+    fonts-noto-cjk \
+    fonts-wqy-microhei \
+    fonts-wqy-zenhei \
     libgbm1 \
     libglib2.0-0 \
     libgomp1 \
@@ -45,6 +53,9 @@ RUN set -eux; \
     libxfixes3 \
     libxkbcommon0 \
     libxrandr2 \
+    && fc-cache -fv \
+    && v="$(fc-list | grep -iE 'WenQuanYi Micro Hei|Noto Sans CJK SC' | head -n1)" \
+    && test -n "$v" \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
