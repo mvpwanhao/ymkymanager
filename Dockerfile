@@ -7,15 +7,29 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# 构建依赖 + Kaleido/Chromium headless（Plotly 导出 PNG）常见动态库
+# 构建依赖 + Kaleido/Chromium headless（Plotly 导出 PNG）系统库
+# 需在 slim Debian 手动装齐，缺 libgbm1 / atk / drm 等时 pio.to_image 会报错。
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
     libcairo2 \
-    libglib2.0-0 \
-    libnss3 \
-    libnspr4 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
     fonts-liberation \
+    libgbm1 \
+    libglib2.0-0 \
     libgomp1 \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-05-02
+
+### 修复
+
+- **Docker**：为 Plotly **`kaleido` 导出 PNG** 增补 Chromium headless 常见缺失系统库（如 **`libgbm1`、`libatk*`、`libdrm2`、`libcups2`、`libxcomposite1`、`libdbus-1-3`、`libasound2`** 等），避免容器内需 `/export/visual-production.xlsx` 时出现「导出图表快照失败（需 Kaleido/Chromium）」。
+
 ## [1.2.2] - 2026-05-02
 
 ### 修复
