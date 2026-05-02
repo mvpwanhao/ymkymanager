@@ -1,65 +1,83 @@
-# 使用 Cloudflare Tunnel 暴露本机服务（历史文档）
+# Cloudflare Tunnel 暴露外网访问
 
-> **当前推荐：** 本项目生产外网穿透已改用 **SakuraFrp + Docker**，详见 **[`SAKURA_TUNNEL.md`](./SAKURA_TUNNEL.md)**。若宿主机曾启用 **`cloudflared`** systemd，迁移后执行：`sudo systemctl disable --now cloudflared`。
->
-> 以下内容保留作 Cloudflare 方案参考。
+在 **Ubuntu + Docker Compose**（本仓库 **`docker-compose.yml`**）中与 **`ymky`** 同编排运行 **`cloudflared`**；边缘终止 HTTPS，后端走 **Compose 内网** **`http://ymky:8080`**。
 
-本应用设计为监听 **本机回环地址**，由 [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) 在 Cloudflare 边缘终止 TLS，避免在路由器上做端口映射。
+> SakuraFRp 备选见 **[`SAKURA_TUNNEL.md`](./SAKURA_TUNNEL.md)**。**不要**同时为同一域名并行开多套穿透，以免造成混乱。
 
-## 1. 本机启动应用
+---
 
-在 `ymky_manager` 目录：
+## 1. 前提
 
-```powershell
-cd C:\path\to\ymkycoalmanager-main\ymky_manager
-python -m pip install -r requirements.txt
+- 域名 DNS 已由 **Cloudflare** 托管（或至少子域/route 可走 Tunnel）。
+- 服务器上项目在 **`~/ymky_manager`**（或其它目录），已通过 **`docker compose up -d`** 跑 **`ymky-manager`**。
+- **`YMKY_TRUSTED_HOSTS`**（若启用）中含公网域名，逗号分隔、无端口。
+
+---
+
+## 2. 在 Cloudflare 创建隧道并拿 Token
+
+1. 登录 [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) → **Networks** → **Tunnels** → **创建隧道**。  
+2. 选 **Docker** 向导，拷贝 **`cloudflared` 令牌**（长串 `eyJ...`）。  
+3. 为该隧道添加 **Public Hostname**（如 **`ymky.haolab.top`**），后端服务：
+   ```text
+   http://ymky:8080
+   ```
+   **必须**填 Compose **服务名** **`ymky`**（与 `docker-compose.yml` 中 **`services:`** 下第一层键名一致），**不要**写 **`127.0.0.1`** ——tunnel 容器与 API 容器在同一 bridge 网络上，用服务名 DNS 互通。
+
+---
+
+## 3. 服务器 `.env`（勿提交）
+
+在 **`ymky_manager` 项目根 `.env`** 增加：
+
+```env
+CLOUDFLARE_TUNNEL_TOKEN=粘贴ZeroTrust里复制的令牌
 ```
 
-配置 `.env`（至少 `YMKY_SECRET_KEY` 与密码相关变量），然后：
+可选用 **`COMPOSE_PROFILES=cloudflared`**（或 **`cloudflared,natfrp`** 等多 profile，不推荐同时对外同一域名）。
 
-```powershell
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8080
+---
+
+## 4. 启动
+
+```bash
+cd ~/ymky_manager
+docker compose pull cloudflared
+docker compose --profile cloudflared up -d
 ```
 
-仅绑定 `127.0.0.1`，外网不经由本机防火墙直接访问 8080。
+查看：
 
-## 2. 安装 cloudflared
+```bash
+docker logs cloudflared-tunnel --tail 50
+curl -sS https://你的域名/health   # 以实际域名为准
+```
 
-从 [Cloudflare 文档](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) 下载 Windows 版 `cloudflared`，加入 PATH。
+---
 
-## 3. 登录并创建隧道
+## 5. 与「宿主机安装 cloudflared」的区别
 
-按官方向导（需已把域名 DNS 托管到 Cloudflare）：
+本项目 **推荐** Compose 内置 **`cloudflared`**：**升级、令牌、与 `ymky` 拉起顺序** 一起管理。
+
+若你已 **purge 掉 APT 安装的 cloudflared**（卸载 `cloudflared` 包、`systemctl` unit 一并删除），以 **本节 Docker 为准**。
+
+---
+
+## 6. Windows / 单机开发（无 Docker）
+
+本机可先跑 **`uvicorn --host 127.0.0.1`**，再在 Windows 安装官方 **`cloudflared`** 二进制执行 **`tunnel run`**，ingress 仍可写 **`http://127.0.0.1:8080`**（无 Compose 时使用本机环回）。
 
 ```powershell
 cloudflared tunnel login
 cloudflared tunnel create ymky-coal
-```
-
-## 4. 配置路由到本机
-
-在配置中将子域名指向本地服务，例如：
-
-```yaml
-ingress:
-  - hostname: coal.example.com
-    service: http://127.0.0.1:8080
-  - service: http_status:404
-```
-
-（具体以 `cloudflared` 当前版本文档为准。）
-
-## 5. 运行隧道进程
-
-```powershell
 cloudflared tunnel run ymky-coal
 ```
 
-将上述进程与 `uvicorn` 一样，用任务计划程序或 NSSM 在开机时拉起更稳妥。
+（路由配置以 Cloudflare 控制台或 `config.yml` 为准。）
 
-## 6. 安全提醒
+---
 
-- 使用强 `YMKY_SECRET_KEY` 与角色密码。  
-- 通过 HTTPS（Tunnel 已提供）访问；勿将 `uvicorn` 绑定到 `0.0.0.0` 且不经隧道直接暴露。  
-- 若已为应用配置自定义域名，可在 `.env` 中设置 `YMKY_TRUSTED_HOSTS`（英文逗号分隔，如 `coal.example.com,127.0.0.1,localhost`），防止异常 `Host` 请求；隧道仅指向本机时也可保持留空。  
-- 定期备份 `data/` 下 Excel 或数据库。
+## 7. 安全提醒
+
+- 使用强 **`YMKY_SECRET_KEY`** 与后台密码。**`CLOUDFLARE_TUNNEL_TOKEN`** 视为机密，轮换后更新 `.env` 并 **`docker compose up -d --force-recreate cloudflared`**。  
+- 定期备份 **`data/`**。

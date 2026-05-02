@@ -1,8 +1,12 @@
 # 局域网：http://<宿主机局域网IP>:8080
 # 若在 .env 中设置了 YMKY_TRUSTED_HOSTS，须包含访问时用到的 Host（不含端口）。
 #
-# SakuraFrp 启动器（profile natfrp）：需在 .env 配置 NATFRP_TOKEN（见 docs/SAKURA_TUNNEL.md）。
-# 生产可先写 COMPOSE_PROFILES=natfrp ，再 docker compose up -d（cron 脚本即可不带 --profile）。
+# SakuraFrp：`profiles: natfrp`，见 docs/SAKURA_TUNNEL.md（与 cloudflared 二选一或可都不开）。
+#
+# Cloudflare Tunnel：`profiles: cloudflared`，在 .env 设置 CLOUDFLARE_TUNNEL_TOKEN（见 docs/CLOUDFLARE_TUNNEL.md）。
+# Dashboard ingress 后端请填 http://ymky:8080（Compose 服务名 ymky），勿写 127.0.0.1。
+#
+# COMPOSE_PROFILES 可 comma 启用多个 profile，例如：cloudflared 或 natfrp
 
 services:
   ymky:
@@ -53,3 +57,15 @@ services:
     volumes:
       # 持久化 launcher 配置（证书、远程管理等）；勿提交仓库（见 .gitignore）
       - ./natfrp:/run
+
+  cloudflared:
+    container_name: cloudflared-tunnel
+    image: cloudflare/cloudflared:latest
+    pull_policy: if_not_present
+    restart: unless-stopped
+    profiles: ["cloudflared"]
+    depends_on:
+      ymky:
+        condition: service_healthy
+    # 令牌：Cloudflare Zero Trust → 隧道 → 「在 Docker 中运行」可复制；写入 .env 勿提交仓库
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}

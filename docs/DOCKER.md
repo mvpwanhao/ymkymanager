@@ -118,4 +118,4 @@ docker compose exec ymky bash   # 进容器 Shell（服务名 ymky）
 
 ---
 
-外网穿透：优先使用 **SakuraFrp 启动器容器**（`docker-compose.yml` 中 **`sakurafrp`**，见 **`docs/SAKURA_TUNNEL.md`**）；隧道本地目标 **`127.0.0.1:8080`**。历史方案 Cloudflare Tunnel 说明见 **`docs/CLOUDFLARE_TUNNEL.md`**。
+外网穿透：**Docker Compose profile `cloudflared`** 运行官方 `cloudflared`（见 **`docs/CLOUDFLARE_TUNNEL.md`**，Zero Trust Ingress 后端填 **`http://ymky:8080`**）；备选 **Sakura**，见 **`docs/SAKURA_TUNNEL.md`**。
