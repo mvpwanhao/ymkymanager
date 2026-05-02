@@ -64,9 +64,9 @@ def _fig_to_png_bytes(fig: go.Figure, width: int = 980, height: int = 520) -> by
         return pio.to_image(fig, format="png", width=width, height=height, scale=2, engine="kaleido")
     except Exception as exc:
         raise RuntimeError(
-            "导出图表快照失败（Kaleido/Chromium）。请用当前 Dockerfile 重建镜像并执行 "
-            "docker compose up -d --force-recreate ymky；docker-compose.yml 已为 ymky 设置 shm_size=512mb"
-            "（默认 64MB 常导致 Chromium 崩溃）。仍失败请查看 docker logs ymky-manager。"
+            "导出图表快照失败（Plotly + Kaleido）。请确认 requirements 中 kaleido<1"
+            "（1.x 依赖系统 Chrome/choreographer）；重建镜像后 docker compose up -d --force-recreate ymky。"
+            "详见容器日志中本次异常链。"
         ) from exc
 
 

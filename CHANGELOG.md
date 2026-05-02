@@ -18,6 +18,7 @@
   - **`Dockerfile`**：补充 **`libgbm1`、`libatk*`、`libdrm2`、`libcups2`、`libxcomposite1`、`libasound2`** 等 headless 常用库，并增加 **`dbus`、`at-spi2-core`、`libgtk-3-0`**。
   - **`docker-compose.yml`**：**`ymky`** 服务设置 **`shm_size: "512mb"`**（默认 **64MB** 时内置 Chromium 易崩溃）。
 - 导出报错文案：提示重建镜像、`--force-recreate` 及查 **`docker logs`**。
+- **`requirements.txt`**：将 **`kaleido`** 限定为 **`<1.0.0`**。误装 **`kaleido>=1`** 会使用 **choreographer + 系统 Chrome**，与本项目 **`kaleido 0.2.x`**（嵌入式 Chromium）及 Dockerfile 假定不符；日志若出现 **`choreographer.browsers.chromium`** 多属此情况。
 
 ### 运维
 
