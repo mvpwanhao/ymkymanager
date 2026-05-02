@@ -66,7 +66,10 @@ YMKY_TRUSTED_HOSTS=192.168.14.222,localhost,127.0.0.1
 
 不设置 `YMKY_TRUSTED_HOSTS`（留空）时，不进行 Host 校验，一般也可在纯内网调试。
 
-按需：`DATABASE_URL`、`YMKY_ENV`、`YMKY_APP_VERSION` 等（见 README）。
+若在构建阶段拉取 **`python:3.12-slim-bookworm`** 或 **PyPI** 经常超时，可参考：
+
+- **Docker Hub**：在宿主机配置 `/etc/docker/daemon.json` 的 `registry-mirrors`（如 DaoCloud 镜像），再 `sudo systemctl restart docker`。本机已按此方式做过一次。
+- **PyPI**：`docker-compose.yml` 已为 **`build.args.PIP_INDEX_URL`** 默认指定清华源；海外环境可改回 `https://pypi.org/simple` 或直接编辑 `Dockerfile` 的默认值。
 
 ## 4. 构建并启动
 
