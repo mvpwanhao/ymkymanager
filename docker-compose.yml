@@ -67,5 +67,9 @@ services:
     depends_on:
       ymky:
         condition: service_healthy
-    # 令牌：Cloudflare Zero Trust → 隧道 → 「在 Docker 中运行」可复制；写入 .env 勿提交仓库
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    # 勿挂载整份 .env：会把 CLOUDFLARE_TUNNEL_TOKEN 等打进容器，cloudflared 启动日志会明文打印变量名与值。
+    # Compose 仍会从项目根 .env 做 ${CLOUDFLARE_TUNNEL_TOKEN} 插值，仅注入下面是运行所需。
+    environment:
+      TZ: Asia/Shanghai
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command: tunnel run

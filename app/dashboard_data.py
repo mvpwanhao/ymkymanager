@@ -386,12 +386,16 @@ def build_summary_and_charts(
         mine_daily_pivot = mine_daily.pivot(
             index="生产日期", columns="所属煤矿", values="产量(吨)"
         ).fillna(0)
-        mine_daily_pivot.index = pd.to_datetime(mine_daily_pivot.index).strftime("%m-%d")
+        mine_daily_pivot.index = pd.to_datetime(mine_daily_pivot.index)
+        mine_daily_pivot = mine_daily_pivot.sort_index()
+        ts_index = pd.DatetimeIndex(mine_daily_pivot.index)
+        years = ts_index.year
+        tickfmt = "%Y-%m-%d" if years.min() != years.max() else "%m-%d"
         trend_fig = go.Figure()
         for mine_name in mine_daily_pivot.columns:
             s = mine_daily_pivot[mine_name]
-            xs = s.index.tolist()
-            ys = s.values
+            xs = ts_index.tolist()
+            ys = s.values.astype(float)
             text_vals = [f"{float(v):.1f}" for v in ys]
             trend_fig.add_trace(
                 go.Scatter(
@@ -404,7 +408,7 @@ def build_summary_and_charts(
                     textfont=dict(size=9),
                     line=dict(width=2.4),
                     marker=dict(size=6),
-                    hovertemplate="%{x}<br>%{fullData.name}: %{y:.2f} 吨<extra></extra>",
+                    hovertemplate="%{x|%Y-%m-%d}<br>%{fullData.name}: %{y:.2f} 吨<extra></extra>",
                 )
             )
         trend_fig.update_layout(
@@ -414,6 +418,14 @@ def build_summary_and_charts(
             legend_title_text="煤矿",
             legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
             colorway=list(_PLOT_COLORWAY),
+        )
+        pad_end = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+        trend_fig.update_xaxes(
+            type="date",
+            tickformat=tickfmt,
+            range=(pd.Timestamp(start_date), pad_end),
+            tick0=pd.Timestamp(start_date),
+            dtick=86400000.0,
         )
         _lock_axes(trend_fig)
 
