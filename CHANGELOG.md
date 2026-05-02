@@ -6,10 +6,27 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-02
+
+### 新增
+
+- 数据可视化：**导出当前统计区间 Excel 报表**（`GET /export/visual-production.xlsx`）：查询参数与页面「年度 / 月度 / 自定义」一致；工作表 **「日均产量」** 为各矿按日产量宽表、日合计与期间合计；工作表 **「图表」** 嵌入与页面同源的饼图、柱状图、折线图 **PNG** 快照（Plotly + Kaleido）。权限与数据可视化入口相同（管理员、产量数据可视化）。
+- **`scripts/deploy-push-remote-docker.bat`**：`git push` 后 SSH 执行远端 **`scripts/server_git_pull_deploy_docker.sh`**（可选 `-nopush`）；配合 UTF-8 控制台与 BOM，减少中文乱码。
+
 ### 运维
 
-- Docker Compose 可选服务 **`sakurafrp`**（启动器 **`natfrp.com/launcher`**、`container_name: sakurafrp`、`network_mode: host`、`profiles: natfrp`）；说明见 **`docs/SAKURA_TUNNEL.md`**，`.env.example` 增补 **`NATFRP_TOKEN`** / **`COMPOSE_PROFILES`**。
-- **`docker-compose.yml`**：**`cloudflared`** 服务（**`profiles: cloudflared`**，`CLOUDFLARE_TUNNEL_TOKEN`）；重写 **`docs/CLOUDFLARE_TUNNEL.md`**（Ingress 后端 **`http://ymky:8080`**）；**README** / **DOCKER** 对齐。
+- Docker Compose 可选服务 **`sakurafrp`**（启动器 **`natfrp.com/launcher`**、`container_name: sakurafrp`、`network_mode: host`、`profiles: natfrp`）；说明见 **`docs/SAKURA_TUNNEL.md`**；`.env.example` 增补 **`NATFRP_TOKEN`** / **`COMPOSE_PROFILES`**。
+- **`docker-compose.yml`**：**`cloudflared`**（**`profiles: cloudflared`**）：仅向容器注入 **`TUNNEL_TOKEN`**（由项目根 `.env` 的 **`CLOUDFLARE_TUNNEL_TOKEN`** 插值），**不**挂载整份 `.env`，避免 JWT 出现在 `cloudflared` 启动日志。
+- **`docs/CLOUDFLARE_TUNNEL.md`**：Ingress **`http://ymky:8080`**、**Error 1016** 排障、**换新隧道**、API 取 **`CLOUDFLARE_TUNNEL_TOKEN`** 等；**.env.example** 与 **README** / **DOCKER** 对齐说明。
+
+### 变更
+
+- **`requirements.txt`**：`kaleido`、`pillow`（图表静态导出与 openpyxl 插图）。
+- **`Dockerfile`**：除 `gcc` 外增加 Kaleido/Chromium 常见运行时依赖（如 `libcairo2`、`libglib2.0-0`、`libnss3`、`fonts-liberation` 等），便于容器内生成 PNG。
+
+### 修复
+
+- 数据可视化：**日产量趋势** — 横轴使用完整日期而非仅 `月-日` 字符串，避免 Plotly 误解析；长区间（如「年度」）减少过密刻度与点位文字堆叠，并加大折线图下边距（`plotly-theme.js`）；**「年度」**折线横轴为有数据的首日至末有数据日（且不超过统计年末与**今天**北京时间）。
 
 ## [1.1.3] - 2026-04-30
 

@@ -113,6 +113,31 @@ def _enum_stat_months(d_lo: date, d_hi: date) -> list[tuple[int, int]]:
     return out
 
 
+def build_daily_mines_export_table(period_df: pd.DataFrame) -> pd.DataFrame:
+    """各矿按日产量宽表 + 日合计 + 末行期间各矿及总合计（用于 Excel 导出）。"""
+    cols_order = [m for m in MINE_LIST]
+    if period_df.empty or "产量(吨)" not in period_df.columns:
+        return pd.DataFrame(columns=["生产日期", *cols_order, "日合计"])
+    g = (
+        period_df.groupby(["生产日期", "所属煤矿"], as_index=False)["产量(吨)"]
+        .sum()
+    )
+    wide = g.pivot(index="生产日期", columns="所属煤矿", values="产量(吨)").fillna(0.0)
+    for m in cols_order:
+        if m not in wide.columns:
+            wide[m] = 0.0
+    wide = wide.reindex(columns=cols_order, fill_value=0.0).sort_index()
+    wide["日合计"] = wide.sum(axis=1)
+    for c in wide.columns:
+        wide[c] = pd.to_numeric(wide[c], errors="coerce").fillna(0).round(2)
+    out = wide.reset_index()
+    out["生产日期"] = out["生产日期"].astype(str)
+    tot: dict[str, Any] = {"生产日期": "期间合计"}
+    for c in wide.columns:
+        tot[c] = round(float(wide[c].sum()), 2)
+    return pd.concat([out, pd.DataFrame([tot])], ignore_index=True)
+
+
 def build_summary_and_charts(
     *,
     period: str = "year",
@@ -120,6 +145,7 @@ def build_summary_and_charts(
     custom_end: date | None = None,
     stat_year: int | None = None,
     stat_month: str | None = None,
+    include_export_figures: bool = False,
 ) -> dict[str, Any]:
     s = get_settings()
     act_path = s.actual_production_path
@@ -461,7 +487,7 @@ def build_summary_and_charts(
             )
         _lock_axes(trend_fig)
 
-    return {
+    out: dict[str, Any] = {
         "empty": False,
         "summary_html": table_html,
         "caption": cap,
@@ -472,3 +498,13 @@ def build_summary_and_charts(
         "trend_html": _fig_to_html(trend_fig),
         **period_meta,
     }
+    if include_export_figures:
+        out["_export"] = {
+            "period_start": start_date,
+            "period_end": end_date,
+            "period_df": period_df.copy(),
+            "pie_figure": pie_fig,
+            "bar_figure": bar_fig,
+            "trend_figure": trend_fig,
+        }
+    return out

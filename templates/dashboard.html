@@ -87,7 +87,12 @@
       <a href="/go/visual?period=month" {% if period == 'month' %}aria-current="page"{% endif %}>月度</a>
       <a href="/go/visual?period=custom" {% if period == 'custom' %}aria-current="page"{% endif %}>自定义</a>
     </div>
-    <span class="muted">{{ dash.period_caption if dash and dash.period_caption is defined else '' }}</span>
+    <div class="row" style="gap:0.65rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+      <span class="muted">{{ dash.period_caption if dash and dash.period_caption is defined else '' }}</span>
+      {% if dash and dash.empty is defined and not dash.empty %}
+      <a class="btn btn-secondary inline" href="/export/visual-production.xlsx{% if request.url.query %}?{{ request.url.query }}{% endif %}" download>导出 Excel 报表（含图表）</a>
+      {% endif %}
+    </div>
   </div>
 
   {% if period == 'year' and dash and dash.year_options %}

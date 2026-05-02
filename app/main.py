@@ -39,6 +39,7 @@ from app.config import get_settings
 from app.middleware_production import SecurityHeadersMiddleware, StaticCacheMiddleware
 from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP, MINE_LIST
 from app.dashboard_data import build_summary_and_charts, exclude_mines
+from app.visual_export import content_disposition_attachment, try_visual_export_bytes
 from app.release_version import health_version
 from app.report_engine import (
     generate_nybb_report,
@@ -405,6 +406,26 @@ def create_app() -> FastAPI:
             content=buf.getvalue().encode("utf-8-sig"),
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
+
+    @app.get("/export/visual-production.xlsx")
+    def export_visual_production(request: Request) -> Any:
+        role = request.session.get("role")
+        if role not in ("管理员", "产量数据可视化"):
+            return RedirectResponse("/login", status_code=303)
+        blob, ascii_n, utf_n, err = try_visual_export_bytes(request)
+        if err or not blob:
+            request.session["flash"] = err or "导出失败。"
+            qs = request.url.query
+            dest = f"/?{qs}" if qs else "/"
+            return RedirectResponse(dest, status_code=303)
+        cd = content_disposition_attachment(str(ascii_n), str(utf_n))
+        return Response(
+            content=blob,
+            media_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers={"Content-Disposition": cd},
         )
 
     @app.get("/go/{section}")

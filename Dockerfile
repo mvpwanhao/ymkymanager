@@ -7,9 +7,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# 构建阶段依赖（部分 wheel 的回退编译）
+# 构建依赖 + Kaleido/Chromium headless（Plotly 导出 PNG）常见动态库
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    libcairo2 \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    fonts-liberation \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
