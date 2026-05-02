@@ -3,7 +3,10 @@
 
 services:
   ymky:
-    build: .
+    build:
+      context: .
+      args:
+        PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
     image: ymky-manager:latest
     container_name: ymky-manager
     restart: unless-stopped

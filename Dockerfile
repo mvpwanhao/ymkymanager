@@ -13,8 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -U pip && \
-    pip install --no-cache-dir -r requirements.txt
+# docker-compose.yml 为国内网络传入 PIP_INDEX_URL（清华源）；默认仍为官方 PyPI
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN pip install -i "${PIP_INDEX_URL}" --default-timeout=300 --no-cache-dir -U pip && \
+    pip install -i "${PIP_INDEX_URL}" --default-timeout=300 --no-cache-dir -r requirements.txt
 
 COPY VERSION .
 COPY app ./app
