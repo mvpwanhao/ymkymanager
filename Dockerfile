@@ -7,9 +7,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# 构建依赖 + Kaleido/Chromium headless（Plotly 导出 PNG）系统库
-# 需在 slim Debian 手动装齐，缺 libgbm1 / atk / drm 等时 pio.to_image 会报错。
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 国内网络：将 bookworm / security 默认源换为清华镜像后再 apt install（含 Kaleido/Chromium 所需系统库）。
+ENV DEBIAN_FRONTEND=noninteractive
+RUN set -eux; \
+    MIR="https://mirrors.tuna.tsinghua.edu.cn"; \
+    for f in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
+      [ -f "$f" ] || continue; \
+      sed -i \
+        -e "s|http://deb.debian.org/debian|${MIR}/debian|g" \
+        -e "s|https://deb.debian.org/debian|${MIR}/debian|g" \
+        -e "s|http://security.debian.org/debian-security|${MIR}/debian-security|g" \
+        -e "s|https://security.debian.org/debian-security|${MIR}/debian-security|g" \
+        "$f"; \
+    done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
     gcc \
     libasound2 \
     libatk-bridge2.0-0 \

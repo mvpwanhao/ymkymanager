@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-05-02
+
+### 运维
+
+- **Dockerfile**：构建阶段 **`apt`** 在 **`apt-get update`** 前将 **`debian.sources` / `sources.list`** 中的 **`deb.debian.org`**、**`security.debian.org`** 替换为 **清华大学 Debian 镜像**（`https://mirrors.tuna.tsinghua.edu.cn`），便于国内慢网或国际出口拥塞时更快完成镜像层；PyPI 仍由 **`PIP_INDEX_URL`**（默认清华）控制。
+
 ## [1.2.3] - 2026-05-02
 
 ### 修复

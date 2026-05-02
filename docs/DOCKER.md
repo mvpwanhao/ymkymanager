@@ -69,6 +69,7 @@ YMKY_TRUSTED_HOSTS=192.168.14.222,localhost,127.0.0.1
 若在构建阶段拉取 **`python:3.12-slim-bookworm`** 或 **PyPI** 经常超时，可参考：
 
 - **Docker Hub**：在宿主机配置 `/etc/docker/daemon.json` 的 `registry-mirrors`（如 DaoCloud 镜像），再 `sudo systemctl restart docker`。本机已按此方式做过一次。
+- **容器内 Debian/apt**：`Dockerfile` 已在 **`apt-get update`** 前将默认源换为 **清华大学 Debian 镜像**（`mirrors.tuna.tsinghua.edu.cn`），减轻 **`deb.debian.org` 过慢**导致的 `RUN apt-get install` 卡死。若在**海外**构建，可去掉或改回该替换逻辑。
 - **PyPI**：`docker-compose.yml` 已为 **`build.args.PIP_INDEX_URL`** 默认指定清华源；海外环境可改回 `https://pypi.org/simple` 或直接编辑 `Dockerfile` 的默认值。
 
 ## 4. 构建并启动
