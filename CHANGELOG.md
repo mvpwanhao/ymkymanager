@@ -4,8 +4,6 @@
 
 **约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
 
-## [Unreleased]
-
 ## [1.2.1] - 2026-05-02
 
 > **版本说明：** **`1.2.0`** 之后的累计修订统一以 **`1.2.1`** 对外发版（不再递增 1.2.2–1.2.4）。
@@ -20,6 +18,7 @@
   - **`requirements.txt`**：将 **`kaleido`** 限定为 **`<1.0.0`**。误装 **`kaleido>=1`** 会使用 **choreographer + 系统 Chrome**，与本项目 **`kaleido 0.2.x`**（嵌入式 Chromium）及 Dockerfile 假定不符；日志若出现 **`choreographer.browsers.chromium`** 多属此情况。
   - **Plotly**：**`app/dashboard_data.py`** 为图表指定与系统中文字体一致的 **`font.family`**；饼图 **`textposition="outside"`** 须同时设 **`outsidetextfont` / `insidetextfont`**（仅设 **`textfont`** 时外侧中文仍会回退成方块）；柱状/折线对 **坐标轴刻度与图例** 显式 **`tickfont` / `title_font` / `legend.font`**；字体回退链以 **文泉驿 Micro Hei** 为首。**`app/visual_export.py`**：**`XDG_CACHE_HOME` / `LANG` / `FONTCONFIG_PATH`**，且对 **Kaleido 0.x** 向 **`plotly.io.kaleido.scope.chromium_args`** 追加 **`--single-process`、`--font-render-hinting=none`**（Plotly/Kaleido Wiki 推荐在受限容器内定制 Chromium）。
 - 导出报错文案：提示重建镜像、`--force-recreate` 及查 **`docker logs`**。
+- **生成报表**：「生成并下载」完成后全局「载入中」不再卡住（附件下载不重载文档时 `pageshow` 不会复位遮罩）；报表表单改用 **`data-no-global-busy`**，仍保留按钮 **`data-loading`** 防重复提交与「处理中…」反馈。
 
 ### 运维
 

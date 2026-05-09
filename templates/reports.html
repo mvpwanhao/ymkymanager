@@ -15,7 +15,8 @@
     <div class="card" style="margin:0;background:var(--c-bg-soft);box-shadow:none;">
       <h3>实际产量统计表</h3>
       <p class="muted">汇总所选日期的实际产量并生成报表。</p>
-      <form method="post" action="/reports/sjcl" data-loading>
+      {# 报表为 POST→附件下载，浏览器不卸载当前文档，全局「载入中」无法仅靠 pageshow 复位，故禁用全局 busy #}
+      <form method="post" action="/reports/sjcl" data-loading data-no-global-busy>
         <label for="d1">数据所属日期</label>
         <input type="date" id="d1" name="target_date" value="{{ default_date.isoformat() }}" required />
         <button type="submit" class="btn btn-primary inline" style="margin-top:0.7rem;">生成并下载</button>
@@ -24,7 +25,7 @@
     <div class="card" style="margin:0;background:var(--c-bg-soft);box-shadow:none;">
       <h3>能源局日报</h3>
       <p class="muted">汇总当日产销量与月度、年度累计。</p>
-      <form method="post" action="/reports/nybb" data-loading>
+      <form method="post" action="/reports/nybb" data-loading data-no-global-busy>
         <label for="d2">数据所属日期</label>
         <input type="date" id="d2" name="target_date" value="{{ default_date.isoformat() }}" required />
         <button type="submit" class="btn btn-primary inline" style="margin-top:0.7rem;">生成并下载</button>
