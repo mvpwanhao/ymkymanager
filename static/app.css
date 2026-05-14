@@ -1392,6 +1392,11 @@ select#themeSelect::-ms-expand { display: none; }
   }
 }
 
+/* Log level filter tabs */
+.log-level-tabs { flex-wrap: wrap; }
+.log-level-tabs a { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+.log-count-hint { font-size: 0.78rem; white-space: nowrap; }
+
 /* Log viewer */
 .log-viewer {
   max-height: 70vh;

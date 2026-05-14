@@ -6,17 +6,66 @@
 {% block title %}系统日志{% endblock %}
 {% block content %}
 <div class="card">
-  <div class="row" style="justify-content:space-between;align-items:center;gap:0.6rem;">
+  <div class="row" style="justify-content:space-between;align-items:center;gap:0.6rem;flex-wrap:wrap;">
     <h1 style="margin:0;">系统日志</h1>
-    <span class="muted">显示最近 500 行</span>
+    <div class="row" style="align-items:center;gap:0.5rem;">
+      <div class="pill-tabs log-level-tabs" role="tablist">
+        <a href="#" data-level="ALL" aria-current="page">全部</a>
+        <a href="#" data-level="ERROR">ERROR</a>
+        <a href="#" data-level="WARNING">WARNING</a>
+        <a href="#" data-level="INFO">INFO</a>
+        <a href="#" data-level="DEBUG">DEBUG</a>
+      </div>
+      <span class="muted log-count-hint">显示最近 500 行</span>
+    </div>
   </div>
   <div class="log-viewer">
     {%- if log_lines -%}
-    <pre class="log-pre">{% for line in log_lines %}{{ line }}
+    <pre class="log-pre" id="logPre">{% for line in log_lines %}{{ line }}
 {% endfor %}</pre>
     {%- else -%}
     <p class="muted" style="padding:1rem;">暂无日志</p>
     {%- endif -%}
   </div>
 </div>
+<script>
+(function(){
+  var tabs = document.querySelectorAll('.log-level-tabs a');
+  var pre  = document.getElementById('logPre');
+  if (!pre || !tabs.length) return;
+  var allText = pre.textContent;
+  var allLines = allText.split('\n');
+  var hint = document.querySelector('.log-count-hint');
+  var LEVELS = ['ERROR','WARNING','INFO','DEBUG'];
+  var levelOrder = {DEBUG:0, INFO:1, WARNING:2, ERROR:3};
+
+  function filterLines(minLevel) {
+    if (minLevel === 'ALL') { pre.textContent = allText; if(hint) hint.textContent = allLines.length + ' 行'; return; }
+    var minOrd = levelOrder[minLevel] || 0;
+    var out = [];
+    for (var i = 0; i < allLines.length; i++) {
+      var line = allLines[i];
+      var matched = false;
+      for (var k = 0; k < LEVELS.length; k++) {
+        if (line.indexOf('| ' + LEVELS[k] + ' |') !== -1) {
+          if (levelOrder[LEVELS[k]] >= minOrd) matched = true;
+          break;
+        }
+      }
+      if (matched) out.push(line);
+    }
+    pre.textContent = out.join('\n');
+    if(hint) hint.textContent = out.length + ' / ' + allLines.length + ' 行';
+  }
+
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener('click', function(e){
+      e.preventDefault();
+      for (var j = 0; j < tabs.length; j++) tabs[j].removeAttribute('aria-current');
+      this.setAttribute('aria-current', 'page');
+      filterLines(this.getAttribute('data-level'));
+    });
+  }
+})();
+</script>
 {% endblock %}
