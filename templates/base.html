@@ -115,6 +115,11 @@
     {% endif %}
 
     <main id="main" class="{% block main_class %}main{% endblock %}">
+      {% if db_healthy is defined and not db_healthy %}
+      <div class="notice-warn" role="alert">
+        <strong>数据库连接中断</strong> — 数据暂存本地，恢复后将自动同步。如持续出现请联系管理员。
+      </div>
+      {% endif %}
       {% if flash %}
       <div class="notice-ok" role="status">{{ flash }}</div>
       {% endif %}

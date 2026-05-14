@@ -52,6 +52,7 @@ from app.storage import (
     dataframe_actual_production_new_row,
     dataframe_energy_reporting_new_row,
     find_records_by_mine_date,
+    has_pending_sync,
     overwrite_records,
     read_records,
     replace_records_for_mine_date,
@@ -297,6 +298,7 @@ def create_app() -> FastAPI:
         s2 = get_settings()
         diag: dict[str, object] = {
             "db_connected": storage_uses_database(),
+            "pending_sync": has_pending_sync(),
         }
         for label, path in [("actual", s2.actual_production_path), ("energy", s2.energy_reporting_path)]:
             try:
@@ -496,6 +498,7 @@ def create_app() -> FastAPI:
             "nav": nav,
             "page": page,
             "storage_db": storage_uses_database(),
+            "db_healthy": storage_uses_database(),
             "form_error": request.session.pop("form_error", None),
             "flash": request.session.pop("flash", None),
             "actual_reporter_map": ACTUAL_REPORTER_MAP,

@@ -19,6 +19,7 @@ _ENGINE: Optional[Engine] = None
 _ENGINE_READY = False
 _ENGINE_LAST_ATTEMPT: float = 0.0
 _ENGINE_RETRY_INTERVAL: float = 30.0
+_PENDING_SYNC = False
 
 FILE_TABLE_MAP = {
     "actual_production.xlsx": "actual_production",
@@ -134,6 +135,7 @@ def _get_engine() -> Optional[Engine]:
         if now - _ENGINE_LAST_ATTEMPT < _ENGINE_RETRY_INTERVAL:
             return None
 
+    was_disconnected = _ENGINE_READY and _ENGINE is None
     _ENGINE_LAST_ATTEMPT = now
     try:
         engine = create_engine(db_url, pool_pre_ping=True)
@@ -142,6 +144,8 @@ def _get_engine() -> Optional[Engine]:
         _ENGINE = engine
         _ENGINE_READY = True
         _log.info("数据库连接成功")
+        if was_disconnected:
+            _try_sync_pending(engine)
         return _ENGINE
     except Exception as exc:
         _log.error("数据库连接失败（%.0f 秒后重试）: %s", _ENGINE_RETRY_INTERVAL, exc)
@@ -210,44 +214,8 @@ def _sync_table_columns(engine: Engine, table_name: str, df: pd.DataFrame) -> No
             conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col}" {sql_type}'))
 
 
-def read_records(file_path: str) -> pd.DataFrame:
-    engine = _get_engine()
-    table_name = _table_name(file_path)
-    if engine is not None and table_name:
-        try:
-            raw = pd.read_sql_query(text(f'SELECT * FROM "{table_name}"'), engine)
-            _log.info("read_records [DB] table=%s rows=%d", table_name, len(raw))
-            return reorder_ledger_dataframe_for_table(table_name, raw)
-        except Exception as exc:
-            _log.error("read_records [DB] 查询失败 table=%s: %s", table_name, exc)
-            return pd.DataFrame()
-
-    source = "Excel" if os.path.exists(file_path) else "无文件"
-    if not os.path.exists(file_path):
-        _log.warning("read_records [%s] 文件不存在: %s (DB engine=%s)", source, file_path, engine)
-        return pd.DataFrame()
-    try:
-        raw = pd.read_excel(file_path)
-        _log.info("read_records [Excel] file=%s rows=%d (DB未连接)", file_path, len(raw))
-        if table_name:
-            return reorder_ledger_dataframe_for_table(table_name, raw)
-        return raw
-    except Exception as exc:
-        _log.error("read_records [Excel] 读取失败 file=%s: %s", file_path, exc)
-        return pd.DataFrame()
-
-
-def append_records(file_path: str, df_new: pd.DataFrame) -> None:
-    df_new = _normalize_ledger_time_columns(df_new)
-    engine = _get_engine()
-    table_name = _table_name(file_path)
-    if table_name:
-        df_new = reorder_ledger_dataframe_for_table(table_name, df_new)
-    if engine is not None and table_name:
-        _sync_table_columns(engine, table_name, df_new)
-        df_new.to_sql(table_name, engine, if_exists="append", index=False)
-        return
-
+def _append_to_excel(file_path: str, df_new: pd.DataFrame, table_name: Optional[str] = None) -> None:
+    """将 df_new 追加到 Excel 文件（write-through 镜像）。"""
     os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
     df_old = pd.read_excel(file_path) if os.path.exists(file_path) else pd.DataFrame()
     if table_name and not df_old.empty:
@@ -258,19 +226,155 @@ def append_records(file_path: str, df_new: pd.DataFrame) -> None:
     df_final.to_excel(file_path, index=False)
 
 
+def _overwrite_excel(file_path: str, df: pd.DataFrame) -> None:
+    """整体覆写 Excel 文件（write-through 镜像）。"""
+    os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
+    df.to_excel(file_path, index=False)
+
+
+def _sync_key_cols(table_name: str) -> list[str]:
+    """用于同步比对的联合键列。"""
+    if table_name == "actual_production":
+        return ["所属煤矿", "生产日期", "提交时间"]
+    return ["所属煤矿", "生产日期", "报送时间"]
+
+
+def _try_sync_pending(engine: Engine) -> None:
+    """DB 重连后，将 Excel 中存在但 DB 缺失的记录回灌到 DB。"""
+    global _PENDING_SYNC
+    if not _PENDING_SYNC:
+        return
+
+    from app.config import get_settings
+    s = get_settings()
+
+    for xlsx_path, table_name in [
+        (s.actual_production_path, "actual_production"),
+        (s.energy_reporting_path, "energy_reporting"),
+    ]:
+        if not os.path.exists(xlsx_path):
+            continue
+        try:
+            excel_df = pd.read_excel(xlsx_path)
+            if excel_df.empty:
+                continue
+            db_df = pd.read_sql_query(text(f'SELECT * FROM "{table_name}"'), engine)
+
+            key_cols = _sync_key_cols(table_name)
+            usable_keys = [c for c in key_cols if c in excel_df.columns and c in db_df.columns]
+            if not usable_keys:
+                continue
+
+            for c in usable_keys:
+                excel_df[c] = excel_df[c].astype(str).str.strip()
+                db_df[c] = db_df[c].astype(str).str.strip()
+
+            merged = excel_df.merge(db_df[usable_keys].drop_duplicates(), on=usable_keys, how="left", indicator=True)
+            missing = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
+
+            if missing.empty:
+                _log.info("sync [%s] 无缺失记录", table_name)
+                continue
+
+            drop_cols = [c for c in missing.columns if c not in db_df.columns]
+            if drop_cols:
+                missing = missing.drop(columns=drop_cols)
+            missing.to_sql(table_name, engine, if_exists="append", index=False)
+            _log.info("sync [%s] 已回灌 %d 条记录到 DB", table_name, len(missing))
+        except Exception as exc:
+            _log.error("sync [%s] 同步失败: %s", table_name, exc)
+
+    _PENDING_SYNC = False
+    _log.info("pending sync 已完成")
+
+
+def has_pending_sync() -> bool:
+    """供 /health/diag 端点查询是否有待同步数据。"""
+    return _PENDING_SYNC
+
+
+def read_records(file_path: str) -> pd.DataFrame:
+    engine = _get_engine()
+    table_name = _table_name(file_path)
+    if engine is not None and table_name:
+        try:
+            raw = pd.read_sql_query(text(f'SELECT * FROM "{table_name}"'), engine)
+            _log.info("read_records [DB] table=%s rows=%d", table_name, len(raw))
+            return reorder_ledger_dataframe_for_table(table_name, raw)
+        except Exception as exc:
+            _log.error("read_records [DB] 查询失败 table=%s，降级读 Excel: %s", table_name, exc)
+
+    if not os.path.exists(file_path):
+        _log.warning("read_records 文件不存在且 DB 不可用: %s", file_path)
+        return pd.DataFrame()
+    try:
+        raw = pd.read_excel(file_path)
+        _log.info("read_records [Excel fallback] file=%s rows=%d", file_path, len(raw))
+        if table_name:
+            return reorder_ledger_dataframe_for_table(table_name, raw)
+        return raw
+    except Exception as exc:
+        _log.error("read_records [Excel] 读取失败 file=%s: %s", file_path, exc)
+        return pd.DataFrame()
+
+
+def append_records(file_path: str, df_new: pd.DataFrame) -> None:
+    global _PENDING_SYNC
+    df_new = _normalize_ledger_time_columns(df_new)
+    engine = _get_engine()
+    table_name = _table_name(file_path)
+    if table_name:
+        df_new = reorder_ledger_dataframe_for_table(table_name, df_new)
+
+    db_ok = False
+    if engine is not None and table_name:
+        try:
+            _sync_table_columns(engine, table_name, df_new)
+            df_new.to_sql(table_name, engine, if_exists="append", index=False)
+            db_ok = True
+        except Exception as exc:
+            _log.error("append_records [DB] 写入失败，数据仅存 Excel: %s", exc)
+            _PENDING_SYNC = True
+
+    if not db_ok and engine is None:
+        _PENDING_SYNC = True
+
+    try:
+        _append_to_excel(file_path, df_new, table_name)
+    except Exception as exc:
+        _log.error("append_records [Excel write-through] 写入失败: %s", exc)
+        if not db_ok:
+            raise
+
+
 def overwrite_records(file_path: str, df: pd.DataFrame) -> None:
+    global _PENDING_SYNC
     df = _normalize_ledger_time_columns(df)
     engine = _get_engine()
     table_name = _table_name(file_path)
     if table_name:
         df = reorder_ledger_dataframe_for_table(table_name, df)
+
+    db_ok = False
     if engine is not None and table_name:
-        _log.info("overwrite_records [DB] table=%s rows=%d", table_name, len(df))
-        df.to_sql(table_name, engine, if_exists="replace", index=False)
-        return
-    _log.info("overwrite_records [Excel] file=%s rows=%d", file_path, len(df))
-    os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
-    df.to_excel(file_path, index=False)
+        try:
+            _log.info("overwrite_records [DB] table=%s rows=%d", table_name, len(df))
+            df.to_sql(table_name, engine, if_exists="replace", index=False)
+            db_ok = True
+        except Exception as exc:
+            _log.error("overwrite_records [DB] 写入失败，数据仅存 Excel: %s", exc)
+            _PENDING_SYNC = True
+
+    if not db_ok and engine is None:
+        _PENDING_SYNC = True
+
+    try:
+        _log.info("overwrite_records [Excel write-through] file=%s rows=%d", file_path, len(df))
+        _overwrite_excel(file_path, df)
+    except Exception as exc:
+        _log.error("overwrite_records [Excel write-through] 写入失败: %s", exc)
+        if not db_ok:
+            raise
 
 
 def _mask_mine_date(df: pd.DataFrame, mine: str, prod_date_iso: str) -> pd.Series:
