@@ -2,7 +2,9 @@
 # 本文件为「云煤矿业产销量管理系统」的组成部分。
 # 仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
 # 未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+import logging
 import os
+import time
 from typing import Optional
 
 import pandas as pd
@@ -11,8 +13,12 @@ from sqlalchemy.engine import Engine
 
 from app.timeutil import TZ_BEIJING
 
+_log = logging.getLogger("ymky.storage")
+
 _ENGINE: Optional[Engine] = None
 _ENGINE_READY = False
+_ENGINE_LAST_ATTEMPT: float = 0.0
+_ENGINE_RETRY_INTERVAL: float = 30.0
 
 FILE_TABLE_MAP = {
     "actual_production.xlsx": "actual_production",
@@ -112,8 +118,9 @@ def dataframe_energy_reporting_new_row(
 
 
 def _get_engine() -> Optional[Engine]:
-    global _ENGINE, _ENGINE_READY
-    if _ENGINE_READY:
+    global _ENGINE, _ENGINE_READY, _ENGINE_LAST_ATTEMPT
+
+    if _ENGINE_READY and _ENGINE is not None:
         return _ENGINE
 
     db_url = os.getenv("DATABASE_URL", "").strip()
@@ -122,16 +129,25 @@ def _get_engine() -> Optional[Engine]:
         _ENGINE = None
         return None
 
-    try:
-        _ENGINE = create_engine(db_url, pool_pre_ping=True)
-        with _ENGINE.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except Exception:
-        _ENGINE = None
-    finally:
-        _ENGINE_READY = True
+    now = time.monotonic()
+    if _ENGINE_READY and _ENGINE is None:
+        if now - _ENGINE_LAST_ATTEMPT < _ENGINE_RETRY_INTERVAL:
+            return None
 
-    return _ENGINE
+    _ENGINE_LAST_ATTEMPT = now
+    try:
+        engine = create_engine(db_url, pool_pre_ping=True)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        _ENGINE = engine
+        _ENGINE_READY = True
+        _log.info("数据库连接成功")
+        return _ENGINE
+    except Exception as exc:
+        _log.error("数据库连接失败（%.0f 秒后重试）: %s", _ENGINE_RETRY_INTERVAL, exc)
+        _ENGINE = None
+        _ENGINE_READY = True
+        return None
 
 
 def storage_uses_database() -> bool:
@@ -200,18 +216,24 @@ def read_records(file_path: str) -> pd.DataFrame:
     if engine is not None and table_name:
         try:
             raw = pd.read_sql_query(text(f'SELECT * FROM "{table_name}"'), engine)
+            _log.info("read_records [DB] table=%s rows=%d", table_name, len(raw))
             return reorder_ledger_dataframe_for_table(table_name, raw)
-        except Exception:
+        except Exception as exc:
+            _log.error("read_records [DB] 查询失败 table=%s: %s", table_name, exc)
             return pd.DataFrame()
 
+    source = "Excel" if os.path.exists(file_path) else "无文件"
     if not os.path.exists(file_path):
+        _log.warning("read_records [%s] 文件不存在: %s (DB engine=%s)", source, file_path, engine)
         return pd.DataFrame()
     try:
         raw = pd.read_excel(file_path)
+        _log.info("read_records [Excel] file=%s rows=%d (DB未连接)", file_path, len(raw))
         if table_name:
             return reorder_ledger_dataframe_for_table(table_name, raw)
         return raw
-    except Exception:
+    except Exception as exc:
+        _log.error("read_records [Excel] 读取失败 file=%s: %s", file_path, exc)
         return pd.DataFrame()
 
 
@@ -243,8 +265,10 @@ def overwrite_records(file_path: str, df: pd.DataFrame) -> None:
     if table_name:
         df = reorder_ledger_dataframe_for_table(table_name, df)
     if engine is not None and table_name:
+        _log.info("overwrite_records [DB] table=%s rows=%d", table_name, len(df))
         df.to_sql(table_name, engine, if_exists="replace", index=False)
         return
+    _log.info("overwrite_records [Excel] file=%s rows=%d", file_path, len(df))
     os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
     df.to_excel(file_path, index=False)
 
