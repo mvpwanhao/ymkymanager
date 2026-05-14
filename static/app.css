@@ -632,6 +632,21 @@ img, svg { display: inline-block; vertical-align: middle; }
 }
 .sidebar-nav a[aria-current="page"]:hover { background: var(--c-brand-600); }
 .sidebar-nav .ico { width: 16px; height: 16px; flex: 0 0 auto; }
+.sidebar-group-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 0.9rem 0.2rem;
+  margin-top: 0.3rem;
+  border-top: 1px solid var(--c-border);
+  list-style: none;
+}
+.sidebar-group-title:first-child {
+  border-top: none;
+  margin-top: 0;
+}
 
 /* Nav backdrop */
 .nav-backdrop {
@@ -1001,6 +1016,40 @@ input:disabled, textarea:disabled, select:disabled {
 .notice-info { background: var(--c-info-bg); color: var(--c-info-fg); border-color: var(--c-info-bd); }
 .notice-warn { background: var(--c-warn-bg); color: var(--c-warn-fg); border-color: var(--c-warn-bd); }
 
+/* Mine status indicator */
+.mine-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+}
+.mine-status-label {
+  font-weight: 600;
+  color: var(--c-muted);
+}
+.mine-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.mine-dot__indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mine-dot--ok .mine-dot__indicator { background: #22c55e; box-shadow: 0 0 3px rgba(34,197,94,0.4); }
+.mine-dot--ok { color: #16a34a; font-weight: 500; }
+.mine-dot--missing .mine-dot__indicator { background: #d1d5db; }
+.mine-dot--missing { color: #9ca3af; }
+
 /* Tables */
 .table-wrap {
   border: 1px solid var(--c-border);
@@ -1341,6 +1390,26 @@ select#themeSelect::-ms-expand { display: none; }
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Log viewer */
+.log-viewer {
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: #1e1e2e;
+  margin-top: 0.5rem;
+}
+.log-pre {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #cdd6f4;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* Footer */

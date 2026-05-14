@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import logging.handlers
 import os
 import re
 from markupsafe import Markup
@@ -112,15 +113,28 @@ def restore_rt_to_session(request: Request) -> RedirectResponse | None:
     return RedirectResponse(path, status_code=303)
 
 
+LOG_FILE = get_settings().data_dir / "ymky_system.log"
+
+
 def _configure_runtime_logging() -> None:
     root = logging.getLogger()
     if root.handlers:
         return
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    fmt = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    console = logging.StreamHandler()
+    console.setFormatter(fmt)
+    root.addHandler(console)
+    root.setLevel(logging.INFO)
+
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fh = logging.handlers.RotatingFileHandler(
+        LOG_FILE, maxBytes=2 * 1024 * 1024, backupCount=5, encoding="utf-8"
+    )
+    fh.setFormatter(fmt)
+    root.addHandler(fh)
 
 
 _DEFAULT_SECRET_MARKER = "dev-change-me-please-use-yml-or-env-YMKY_SECRET_KEY"
@@ -148,12 +162,13 @@ async def lifespan(app: FastAPI):
 def _nav_and_page(role: str, reporter_kind: str | None, session: dict) -> tuple[list[dict], str]:  # type: ignore[type-arg]
     if role == "管理员":
         nav = [
-            {"id": "visual", "label": "数据可视化", "path": "/go/visual"},
-            {"id": "entry_actual", "label": "实际产量填报", "path": "/go/entry_actual"},
-            {"id": "entry_energy", "label": "能源局产销量填报", "path": "/go/entry_energy"},
-            {"id": "admin_ledger", "label": "历史台账", "path": "/go/admin_ledger"},
-            {"id": "reports", "label": "生成报表", "path": "/go/reports"},
-            {"id": "passwords", "label": "密码管理", "path": "/go/passwords"},
+            {"id": "visual", "label": "数据可视化", "path": "/go/visual", "group": "数据查看"},
+            {"id": "admin_ledger", "label": "历史台账", "path": "/go/admin_ledger", "group": "数据查看"},
+            {"id": "entry_actual", "label": "实际产量填报", "path": "/go/entry_actual", "group": "填报"},
+            {"id": "entry_energy", "label": "能源局产销量填报", "path": "/go/entry_energy", "group": "填报"},
+            {"id": "reports", "label": "生成报表", "path": "/go/reports", "group": "系统"},
+            {"id": "passwords", "label": "密码管理", "path": "/go/passwords", "group": "系统"},
+            {"id": "logs", "label": "系统日志", "path": "/go/logs", "group": "系统"},
         ]
         default = "visual"
     elif role == "填报人员" and (reporter_kind or "") == "实际产量填报":
@@ -570,16 +585,31 @@ def create_app() -> FastAPI:
             is_actual = (role == "填报人员" and (request.session.get("reporter_kind") or "") == "实际产量填报")
             p = act_path if is_actual else en_path
             df = exclude_mines(read_records(p))
+
+            today_str = today_beijing().isoformat()
+            time_col_key = "提交时间" if is_actual else "报送时间"
+            mine_status: list[dict[str, object]] = []
+            for mine_name in MINE_LIST:
+                submitted = False
+                if not df.empty and "所属煤矿" in df.columns and time_col_key in df.columns:
+                    mine_rows = df[df["所属煤矿"].astype(str).str.strip() == mine_name]
+                    submitted = mine_rows[time_col_key].astype(str).str.startswith(today_str).any()
+                mine_status.append({"name": mine_name, "submitted": submitted})
+
             if not df.empty:
+                if time_col_key in df.columns:
+                    df = df.sort_values(time_col_key, ascending=False, na_position="last").reset_index(drop=True)
                 for c in ("提交时间", "报送时间"):
                     if c in df.columns:
                         df[c] = format_series_as_beijing_display(df[c])
+
             return templates.TemplateResponse(
                 request,
                 "history.html",
                 {
                     **ctx,
                     "table_html": _df_to_html_table(df) if not df.empty else None,
+                    "mine_status": mine_status,
                 },
             )
         if page == "admin_ledger":
@@ -588,7 +618,20 @@ def create_app() -> FastAPI:
                 ft = "actual"
             p = act_path if ft == "actual" else en_path
             df = exclude_mines(read_records(p))
+
+            today_str = today_beijing().isoformat()
+            mine_status: list[dict[str, object]] = []
+            time_col_key = "提交时间" if ft == "actual" else "报送时间"
+            for mine_name in MINE_LIST:
+                submitted = False
+                if not df.empty and "所属煤矿" in df.columns and time_col_key in df.columns:
+                    mine_rows = df[df["所属煤矿"].astype(str).str.strip() == mine_name]
+                    submitted = mine_rows[time_col_key].astype(str).str.startswith(today_str).any()
+                mine_status.append({"name": mine_name, "submitted": submitted})
+
             if not df.empty:
+                if time_col_key in df.columns:
+                    df = df.sort_values(time_col_key, ascending=False, na_position="last").reset_index(drop=True)
                 for c in ("提交时间", "报送时间"):
                     if c in df.columns:
                         df[c] = format_series_as_beijing_display(df[c])
@@ -606,6 +649,7 @@ def create_app() -> FastAPI:
                         else:
                             row_cells.append(str(x))
                     rows.append(row_cells)
+
             return templates.TemplateResponse(
                 request,
                 "admin_ledger.html",
@@ -615,6 +659,7 @@ def create_app() -> FastAPI:
                     "nrows": len(df),
                     "ledger_cols": list(df.columns) if not df.empty else [],
                     "ledger_rows": rows,
+                    "mine_status": mine_status,
                 },
             )
         if page == "reports":
@@ -626,6 +671,17 @@ def create_app() -> FastAPI:
         if page == "passwords" and role == "管理员":
             return templates.TemplateResponse(
                 request, "passwords.html", {**ctx, "msg": None, "ok": None}
+            )
+        if page == "logs" and role == "管理员":
+            log_lines: list[str] = []
+            if LOG_FILE.exists():
+                try:
+                    raw = LOG_FILE.read_text(encoding="utf-8", errors="replace")
+                    log_lines = raw.splitlines()[-500:]
+                except Exception:
+                    log_lines = ["(无法读取日志文件)"]
+            return templates.TemplateResponse(
+                request, "logs.html", {**ctx, "log_lines": log_lines}
             )
         return templates.TemplateResponse(
             request,

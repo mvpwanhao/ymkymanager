@@ -1,0 +1,22 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+#}
+{% extends "base.html" %}
+{% block title %}系统日志{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="row" style="justify-content:space-between;align-items:center;gap:0.6rem;">
+    <h1 style="margin:0;">系统日志</h1>
+    <span class="muted">显示最近 500 行</span>
+  </div>
+  <div class="log-viewer">
+    {%- if log_lines -%}
+    <pre class="log-pre">{% for line in log_lines %}{{ line }}
+{% endfor %}</pre>
+    {%- else -%}
+    <p class="muted" style="padding:1rem;">暂无日志</p>
+    {%- endif -%}
+  </div>
+</div>
+{% endblock %}

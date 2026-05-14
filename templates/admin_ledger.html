@@ -16,6 +16,16 @@
     </div>
     <span class="muted">共 {{ nrows }} 行 · 直接编辑单元格，勾选「删」可移除该行，最后点「保存修改」生效</span>
   </div>
+  {% if mine_status %}
+  <div class="mine-status-bar">
+    <span class="mine-status-label">今日填报：</span>
+    {% for m in mine_status %}
+    <span class="mine-dot {{ 'mine-dot--ok' if m.submitted else 'mine-dot--missing' }}">
+      <span class="mine-dot__indicator"></span>{{ m.name }}
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   {% if nrows == 0 %}
   <div class="empty-state">

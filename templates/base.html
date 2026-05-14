@@ -102,7 +102,12 @@
     {% if nav and role %}
     <aside class="sidebar" id="sidebarNav" aria-label="功能导航" aria-hidden="true">
       <ul class="sidebar-nav">
+        {%- set ns = namespace(current_group="") -%}
         {% for item in nav %}
+        {%- if item.group is defined and item.group != ns.current_group -%}
+        {%- set ns.current_group = item.group -%}
+        <li class="sidebar-group-title" aria-hidden="true">{{ item.group }}</li>
+        {%- endif -%}
         <li>
           <a href="{{ item.path }}" {% if page == item.id %}aria-current="page"{% endif %}>
             {{ nav_icon(item.id) }}<span>{{ item.label }}</span>
