@@ -8,13 +8,13 @@
 {% block title %}历史台账 · 产销量管理系统{% endblock %}
 {% block content %}
 <div class="card">
-  <h1>管理员数据台账</h1>
+  <h1>{% if readonly %}历史台账（只读）{% else %}管理员数据台账{% endif %}</h1>
   <div class="row" style="justify-content:space-between;gap:0.85rem;flex-wrap:wrap;margin-bottom:0.4rem;">
     <div class="pill-tabs" role="tablist">
       <a href="/go/admin_ledger?t=actual" {% if form_type == 'actual' %}aria-current="page"{% endif %}>实际产量</a>
       <a href="/go/admin_ledger?t=nybb"   {% if form_type == 'nybb'   %}aria-current="page"{% endif %}>能源局产销量</a>
     </div>
-    <span class="muted">共 {{ nrows }} 行 · 直接编辑单元格，勾选「删」可移除该行，最后点「保存修改」生效</span>
+    <span class="muted">共 {{ nrows }} 行{% if not readonly %} · 直接编辑单元格，勾选「删」可移除该行，最后点「保存修改」生效{% endif %}</span>
   </div>
   {% if mine_status %}
   <div class="mine-status-bar">
@@ -33,6 +33,27 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
     </div>
     <p>暂无数据</p>
+  </div>
+  {% elif readonly %}
+  <div class="table-wrap">
+    <table class="data-table compact">
+      <thead>
+        <tr>
+          {% for c in ledger_cols %}
+          <th>{{ c }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in range(nrows) %}
+        <tr>
+          {% for j in range(ledger_cols|length) %}
+          <td>{{ ledger_rows[i][j] }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% else %}
   <form method="post" action="/admin/ledger/save" class="ledger" data-loading>

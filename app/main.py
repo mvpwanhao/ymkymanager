@@ -184,7 +184,10 @@ def _nav_and_page(role: str, reporter_kind: str | None, session: dict) -> tuple[
         ]
         default = "entry_energy"
     else:
-        nav = [{"id": "visual", "label": "数据可视化", "path": "/go/visual"}]
+        nav = [
+            {"id": "visual", "label": "数据可视化", "path": "/go/visual"},
+            {"id": "admin_ledger", "label": "历史台账", "path": "/go/admin_ledger"},
+        ]
         default = "visual"
     active = (session or {}).get("active_section") or default
     valid = {n["id"] for n in nav}
@@ -660,6 +663,7 @@ def create_app() -> FastAPI:
                     "ledger_cols": list(df.columns) if not df.empty else [],
                     "ledger_rows": rows,
                     "mine_status": mine_status,
+                    "readonly": role != "管理员",
                 },
             )
         if page == "reports":
