@@ -17,6 +17,9 @@ services:
     image: ymky-manager:latest
     container_name: ymky-manager
     restart: unless-stopped
+    # 以宿主机 wanhao(uid=1000) 运行，避免 volume 写入文件属主为 root
+    # 需配合 Dockerfile 中 appuser(uid=1000) 使用
+    user: "1000:1000"
     ports:
       - "8080:8080"
     env_file:

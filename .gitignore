@@ -5,6 +5,7 @@
 # ── 1. 机密 / 凭据（绝对不能进仓库）─────────────────────────────────────────
 # .env：含 YMKY_SECRET_KEY、可能的 DATABASE_URL、SERVERCHAN_SENDKEY 等
 .env
+.env.*
 .env.local
 .env.*.local
 

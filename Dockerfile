@@ -73,6 +73,10 @@ COPY static ./static
 
 RUN mkdir -p /app/data /app/data/runtime /app/data/exports
 
+# 创建非 root 用户，UID=1000 匹配宿主机 wanhao，确保 volume 写入文件属主正确
+RUN useradd -u 1000 -m appuser && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8080
 
 # 监听 0.0.0.0 以便 Docker 端口映射到局域网
