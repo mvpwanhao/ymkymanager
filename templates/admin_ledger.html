@@ -11,11 +11,38 @@
   <h1>{% if readonly %}历史台账（只读）{% else %}管理员数据台账{% endif %}</h1>
   <div class="row" style="justify-content:space-between;gap:0.85rem;flex-wrap:wrap;margin-bottom:0.4rem;">
     <div class="pill-tabs" role="tablist">
-      <a href="/go/admin_ledger?t=actual" {% if form_type == 'actual' %}aria-current="page"{% endif %}>实际产量</a>
-      <a href="/go/admin_ledger?t=nybb"   {% if form_type == 'nybb'   %}aria-current="page"{% endif %}>能源局产销量</a>
+      <a href="/go/admin_ledger?t=actual{% for m in selected_mines %}&mine={{ m }}{% endfor %}" {% if form_type == 'actual' %}aria-current="page"{% endif %}>实际产量</a>
+      <a href="/go/admin_ledger?t=nybb{% for m in selected_mines %}&mine={{ m }}{% endfor %}"   {% if form_type == 'nybb'   %}aria-current="page"{% endif %}>能源局产销量</a>
     </div>
     <span class="muted">共 {{ nrows }} 行{% if not readonly %} · 直接编辑单元格，勾选「删」可移除该行，最后点「保存修改」生效{% endif %}</span>
   </div>
+  <form method="get" action="/" style="margin-bottom:0.5rem;">
+    <input type="hidden" name="t" value="{{ form_type }}">
+    <div style="margin-bottom:0.45rem;">
+      <span class="muted" style="font-size:0.82rem;">筛选煤矿：</span>
+    </div>
+    <div class="mine-chip-group" style="margin-bottom:0.5rem;">
+      <label class="mine-chip mine-chip--all">
+        <input type="checkbox" onchange="var cbs=this.closest('form').querySelectorAll('.mine-chip--item input[type=checkbox]');cbs.forEach(function(c){c.checked=this.checked}.bind(this))">
+        全选
+      </label>
+      {% for m in mine_list %}
+      <label class="mine-chip mine-chip--item">
+        <input type="checkbox" name="mine" value="{{ m }}" {% if m in selected_mines %}checked{% endif %}>
+        {{ m }}
+      </label>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:0.4rem;align-items:center;">
+      <button type="submit" class="btn btn-primary btn-sm inline">筛选</button>
+      {% if selected_mines %}
+      <a href="/go/admin_ledger?t={{ form_type }}" class="btn btn-sm" style="text-decoration:none;color:var(--c-muted);padding:0.3rem 0.6rem;">清除</a>
+      {% endif %}
+      {% if selected_mines %}
+      <span class="muted" style="font-size:0.75rem;">已选 {{ selected_mines|length }} 个煤矿</span>
+      {% endif %}
+    </div>
+  </form>
   {% if mine_status %}
   <div class="mine-status-bar">
     <span class="mine-status-label">今日填报：</span>

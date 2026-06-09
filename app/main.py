@@ -492,6 +492,10 @@ def create_app() -> FastAPI:
             return RedirectResponse(f"/?period={p}", status_code=303)
         if section == "admin_ledger" and t in ("actual", "nybb"):
             request.session["ledger_t"] = t
+            mines = [m.strip() for m in request.query_params.getlist("mine") if m.strip()]
+            if mines:
+                qs = "&".join(f"mine={quote(m)}" for m in mines)
+                return RedirectResponse(f"/?{qs}", status_code=303)
         return RedirectResponse("/", status_code=303)
 
     @app.get("/", response_class=HTMLResponse)
@@ -619,6 +623,7 @@ def create_app() -> FastAPI:
             ft = request.query_params.get("t") or request.session.get("ledger_t") or "actual"
             if ft not in ("actual", "nybb"):
                 ft = "actual"
+            selected_mines = [m.strip() for m in request.query_params.getlist("mine") if m.strip()]
             p = act_path if ft == "actual" else en_path
             df = exclude_mines(read_records(p))
 
@@ -638,6 +643,11 @@ def create_app() -> FastAPI:
                 for c in ("提交时间", "报送时间"):
                     if c in df.columns:
                         df[c] = format_series_as_beijing_display(df[c])
+
+
+            if selected_mines and not df.empty and "所属煤矿" in df.columns:
+                df = df[df["所属煤矿"].astype(str).str.strip().isin(selected_mines)].copy()
+            ledger_orig_indices: list[int] = df.index.tolist() if not df.empty else []
             rows: list[list[object]] = []
             if not df.empty:
                 for _, r in df.iterrows():
@@ -663,6 +673,9 @@ def create_app() -> FastAPI:
                     "ledger_cols": list(df.columns) if not df.empty else [],
                     "ledger_rows": rows,
                     "mine_status": mine_status,
+                    "mine_list": MINE_LIST,
+                    "selected_mines": selected_mines,
+                    "ledger_orig_indices": ledger_orig_indices,
                     "readonly": role != "管理员",
                 },
             )
@@ -928,30 +941,55 @@ def create_app() -> FastAPI:
         act_path, en_path = get_paths()
         p = act_path if form_type == "actual" else en_path
         raw = read_records(p)
-        df = exclude_mines(raw) if not raw.empty else raw
-        if df.empty:
+        df_full = exclude_mines(raw) if not raw.empty else raw
+        if df_full.empty:
             request.session["flash"] = "无数据可保存"
             return RedirectResponse("/go/admin_ledger", status_code=303)
+        cols = [str(c) for c in df_full.columns]
         nrows = int(str(form.get("nrows", "0")))
-        cols = [str(c) for c in df.columns]
-        new_rows: list[dict] = []
+
+        # ── 收集表单中可见行的变更（更新/删除）────
+        updated_rows: list[tuple[int, dict]] = []
+        deleted_indices: set[int] = set()
         for i in range(nrows):
+            orig_idx_str = str(form.get(f"orig_idx_{i}", ""))
+            if not orig_idx_str.lstrip("-").isdigit():
+                continue
+            orig_idx = int(orig_idx_str)
+            if orig_idx < 0 or orig_idx >= len(df_full):
+                continue
             if str(form.get(f"del_{i}")) == "1":
+                deleted_indices.add(orig_idx)
                 continue
             row: dict = {}
             for j, col in enumerate(cols):
                 key = f"c_{i}_{j}"
                 val = form.get(key)
                 row[col] = _coerce_ledger_value(col, str(val) if val is not None else "")
-            new_rows.append(row)
-        if not new_rows:
-            new_df = pd.DataFrame(columns=df.columns)
+            updated_rows.append((orig_idx, row))
+
+        # ── 合并：保留未出现在表单中的行 + 更新后的行 ──
+        updated_idx_set = {r[0] for r in updated_rows}
+        result_rows: list[dict] = []
+        for idx in range(len(df_full)):
+            if idx in deleted_indices:
+                continue
+            if idx in updated_idx_set:
+                for orig_idx, row_dict in updated_rows:
+                    if orig_idx == idx:
+                        result_rows.append(row_dict)
+                        break
+            else:
+                result_rows.append(df_full.iloc[idx].to_dict())
+
+        if not result_rows:
+            new_df = pd.DataFrame(columns=df_full.columns)
         else:
-            new_df = pd.DataFrame(new_rows)
-            for c in df.columns:
+            new_df = pd.DataFrame(result_rows)
+            for c in df_full.columns:
                 if c not in new_df.columns:
                     new_df[c] = None
-            new_df = new_df[[c for c in df.columns]]
+            new_df = new_df[[c for c in df_full.columns]]
 
         excluded_rows = pd.DataFrame()
         if not raw.empty and "所属煤矿" in raw.columns:

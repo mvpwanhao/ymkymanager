@@ -270,7 +270,7 @@ img, svg { display: inline-block; vertical-align: middle; }
 
 /* 顶栏：紧凑一行，过长时换行 */
 .brand-lockup--topbar {
-  font-size: var(--tx-13);
+  font-size: var(--tx-12);
   max-width: min(58vw, 22rem);
 }
 .brand-lockup--topbar .brand-company,
@@ -811,11 +811,92 @@ code {
 }
 
 /* Utilities */
-.muted { color: var(--c-muted); font-size: var(--tx-13); }
+.muted { color: var(--c-muted); font-size: var(--tx-12); }
 .text-soft { color: var(--c-text-soft); }
 .spacer-sm { height: 0.6rem; }
 .spacer { height: 1rem; }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+
+/* Filter select (admin ledger mine filter) */
+.filter-select {
+  padding: 0.3rem 0.7rem;
+  font-size: var(--tx-12);
+  background-color: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius, 6px);
+  min-height: 32px;
+}
+
+/* Mine filter chips (admin ledger) */
+.mine-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.mine-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  font-size: var(--tx-12);
+  font-weight: 500;
+  border: 1.5px solid var(--c-border);
+  border-radius: 20px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--c-surface);
+  color: var(--c-text-soft);
+  transition: all var(--t-fast);
+  min-height: 30px;
+  line-height: 1.25;
+}
+.mine-chip input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.mine-chip:has(input:checked) {
+  background: var(--c-brand-500);
+  color: #fff;
+  border-color: var(--c-brand-500);
+}
+.mine-chip:hover {
+  border-color: var(--c-brand-500);
+  color: var(--c-brand-500);
+}
+.mine-chip:has(input:checked):hover {
+  background: var(--c-brand-600);
+  border-color: var(--c-brand-600);
+  color: #fff;
+}
+.mine-chip--all {
+  font-weight: 600;
+  border-style: dashed;
+}
+[data-color-mode="dark"] .mine-chip {
+  background: var(--c-surface);
+  color: var(--c-text-soft);
+}
+[data-color-mode="dark"] .mine-chip:has(input:checked) {
+  background: var(--c-brand-500);
+  color: #fff;
+}
+[data-color-mode="dark"] .mine-chip:hover {
+  border-color: var(--c-brand-500);
+  color: var(--c-brand-500);
+}
+@media (max-width: 480px) {
+  .mine-chip {
+    padding: 0.3rem 0.6rem;
+    font-size: var(--tx-12);
+    min-height: 30px;
+  }
+}
 
 /* Chips */
 .chip {
@@ -853,7 +934,7 @@ code {
 
 label {
   display: block;
-  font-size: var(--tx-13);
+  font-size: var(--tx-12);
   font-weight: 500;
   color: var(--c-text-soft);
   margin-bottom: 0.35rem;
@@ -970,7 +1051,7 @@ input:disabled, textarea:disabled, select:disabled {
   background: var(--c-bg-soft);
   color: var(--c-text);
 }
-.btn-sm { min-height: 34px; padding: 0.25rem 0.7rem; font-size: var(--tx-13); border-radius: 8px; width: auto; }
+.btn-sm { min-height: 30px; padding: 0.25rem 0.7rem; font-size: var(--tx-12); border-radius: 8px; width: auto; }
 
 .btn-row {
   display: flex;
@@ -1061,7 +1142,7 @@ input:disabled, textarea:disabled, select:disabled {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--tx-13);
+  font-size: var(--tx-12);
   font-variant-numeric: tabular-nums;
 }
 .data-table th, .data-table td {
@@ -1102,7 +1183,7 @@ table.data-table {
 .ledger input[type="text"], .ledger input[type="number"] {
   min-height: 36px;
   padding: 0.3rem 0.5rem;
-  font-size: var(--tx-13);
+  font-size: var(--tx-12);
   border-radius: 6px;
   border-color: var(--c-border);
   background: var(--c-surface);
@@ -1129,7 +1210,7 @@ table.data-table {
   min-height: 32px;
   padding: 0.3rem 0.85rem;
   font: inherit;
-  font-size: var(--tx-13);
+  font-size: var(--tx-12);
   font-weight: 500;
   color: var(--c-text-soft);
   background: transparent;
@@ -1325,7 +1406,7 @@ select#themeSelect.theme-select {
   box-sizing: border-box;
   width: auto;
   max-width: 7.6rem;
-  min-height: 34px;
+  min-height: 30px;
   padding: 0.2rem 1.85rem 0.2rem 0.45rem;
   font-size: var(--tx-12);
   font-weight: 500;
