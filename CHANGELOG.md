@@ -1,3 +1,9 @@
+# 更新日志
+
+本文档格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+
+**约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
+
 ## [1.3.1] - 2026-06-09
 
 ### 新增
@@ -7,12 +13,6 @@
 ### 修复
 
 - **筛选状态下保存不再丢失数据**：修复了在筛选视图下点击「保存修改」会覆盖整个 Excel 文件、仅保留可见行的问题。现在通过每行携带 `orig_idx` 追踪原始位置，保存时仅更新有变更的行，未在表单中出现的行保持不变。
-
-# 更新日志
-
-本文档格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
-
-**约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
 
 ## [1.3.0] - 2026-05-14
 
