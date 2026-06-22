@@ -47,7 +47,7 @@ from app.report_engine import (
     generate_sjcl_report,
     read_sjcl_v2_daily_plans_from_template,
 )
-from app.services.notify import notify_submit_actual, notify_submit_energy
+from app.services.notify import notify_alert, notify_startup
 from app.storage import (
     append_records,
     dataframe_actual_production_new_row,
@@ -156,6 +156,15 @@ async def lifespan(app: FastAPI):
         )
     if s.is_production and s.local_debug_password_autofill:
         log.warning("YMKY_ENV=production 但 YMKY_LOCAL_DEBUG 已开启，生产环境请关闭。")
+    # ?? ??????????? Server? ??????
+    if s.is_production:
+        from app.release_version import read_version_from_file
+        v = s.app_version.strip() or read_version_from_file()
+        ok, msg = notify_startup(success=True, version=v)
+        if ok:
+            log.info("???????")
+        else:
+            log.warning("????????%s", msg)
     yield
 
 
@@ -810,14 +819,6 @@ def create_app() -> FastAPI:
             )
             return RedirectResponse("/", status_code=303)
 
-        ok, msg = notify_submit_actual(
-            mine=mine, prod_date=pd_, reporter=who, production=prod, note=note
-        )
-        if not ok and msg and "未配置" not in msg:
-            request.session["flash"] = f"{save_msg}。{msg}"
-        else:
-            request.session["flash"] = save_msg
-        return RedirectResponse("/", status_code=303)
 
     @app.post("/entry/energy/submit", response_model=None)
     def submit_energy(
@@ -923,14 +924,6 @@ def create_app() -> FastAPI:
             )
             return RedirectResponse("/", status_code=303)
 
-        ok, msg = notify_submit_energy(
-            mine=mine, prod_date=pd_, reporter=who, production=p_f, sales=s_f, note=note
-        )
-        if not ok and msg and "未配置" not in msg:
-            request.session["flash"] = f"{save_msg}。{msg}"
-        else:
-            request.session["flash"] = save_msg
-        return RedirectResponse("/", status_code=303)
 
     @app.post("/admin/ledger/save")
     async def admin_ledger_save(request: Request) -> RedirectResponse:
@@ -1122,6 +1115,29 @@ def create_app() -> FastAPI:
         )
 
     # 路由全注册后再挂 /static
+    # ?? ?????????? 5xx ?????????
+    @app.middleware("http")
+    async def alert_on_5xx(request: Request, call_next):
+        try:
+            response = await call_next(request)
+            if response.status_code >= 500 and get_settings().is_production:
+                notify_alert(
+                    level="error",
+                    title="??? 5xx ??",
+                    message=f"{request.method} {request.url.path} ?? {response.status_code}",
+                    detail=f"Client: {request.client.host if request.client else 'unknown'}\nUA: {request.headers.get('user-agent', '-')}",
+                )
+            return response
+        except Exception as exc:
+            if get_settings().is_production:
+                notify_alert(
+                    level="critical",
+                    title="??????",
+                    message=f"{request.method} {request.url.path} ???????",
+                    exception=exc,
+                )
+            raise
+
     app.mount(
         "/static",
         StaticFiles(directory=str((base / "static").resolve())),

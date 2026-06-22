@@ -1,4 +1,4 @@
-# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 # 本文件为「云煤矿业产销量管理系统」的组成部分。
 # 仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
 # 未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date
+import traceback
+from typing import Literal
 from urllib.error import HTTPError
 from urllib import parse, request
 
@@ -14,10 +15,18 @@ from app.config import get_settings
 from app.timeutil import now_str
 
 
+# ── 低层 API ──────────────────────────────────────────
+
+
 def get_sendkey() -> str:
     s = get_settings()
     v = s.serverchan_sendkey.strip() or (os.environ.get("SERVERCHAN_SENDKEY") or "").strip()
     return v
+
+
+def _serverchan_available() -> bool:
+    """Server酱 是否已配置"""
+    return bool(get_sendkey())
 
 
 def send_serverchan(*, title: str, desp: str) -> tuple[bool, str]:
@@ -51,45 +60,75 @@ def send_serverchan(*, title: str, desp: str) -> tuple[bool, str]:
         return False, f"微信提醒发送异常：{e!s}"
 
 
-def notify_submit_actual(
-    *,
-    mine: str,
-    prod_date: date,
-    reporter: str,
-    production: float,
-    note: str,
-) -> tuple[bool, str]:
-    title = "云煤填报提醒｜实际生产产量提交成功"
-    lines = [
-        f"- 煤矿：{mine}",
-        f"- 生产日期：{prod_date.strftime('%Y-%m-%d')}",
-        f"- 填报人：{reporter}",
-        f"- 当日产量：{production:.2f} 吨",
-    ]
-    if str(note).strip():
-        lines.append(f"- 备注：{str(note).strip()}")
-    lines.append(f"- 提交时间：{now_str()}")
-    return send_serverchan(title=title, desp="\n".join(lines))
+# ── 填报成功通知（保留原有功能）────────────────────────
 
 
-def notify_submit_energy(
+def notify_alert(
     *,
-    mine: str,
-    prod_date: date,
-    reporter: str,
-    production: float,
-    sales: float,
-    note: str,
+    level: Literal["critical", "error", "warning", "info"] = "error",
+    title: str,
+    message: str,
+    detail: str = "",
+    exception: BaseException | None = None,
 ) -> tuple[bool, str]:
-    title = "云煤填报提醒｜能源局产销量提交成功"
-    lines = [
-        f"- 煤矿：{mine}",
-        f"- 生产日期：{prod_date.strftime('%Y-%m-%d')}",
-        f"- 填报人：{reporter}",
-        f"- 当日产量：{production:.2f} 吨",
-        f"- 当日销量：{sales:.2f} 吨",
-    ]
-    if str(note).strip():
-        lines.append(f"- 备注：{str(note).strip()}")
-    lines.append(f"- 提交时间：{now_str()}")
+    """发送异常告警到微信（Server酱）。
+
+    适用场景：
+    - 服务启动失败 / 容器重启
+    - 数据库断连
+    - 健康检查异常
+    - 导出/报表生成异常
+    - 其他需要人工关注的异常
+
+    Parameters
+    ----------
+    level : 告警级别（影响标题前缀表情）。
+    title : 告警标题，例如 "数据库断连"。
+    message : 一行摘要。
+    detail : 可选的上下文详情（多行）。
+    exception : 可选的异常对象，自动添加调用栈。
+    """
+    if not _serverchan_available():
+        return False, "未配置 SERVERCHAN_SENDKEY，跳过告警"
+
+    emoji = ALERT_LEVEL_EMOJI.get(level, "⚠️")
+    full_title = f"{emoji} 【{level.upper()}】{title}"
+
+    lines = [f"📌 {message}", f"🕐 {now_str()}"]
+    if detail:
+        lines.append("")
+        lines.append(detail)
+    if exception is not None:
+        tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+        lines.append("")
+        lines.append("📎 异常调用栈：")
+        lines.append(f"```\n{tb}\n```")
+
+    return send_serverchan(title=full_title, desp="\n".join(lines))
+
+
+# ── 启动通知（新增）────────────────────────────────────
+
+
+def notify_startup(*, success: bool, version: str, detail: str = "") -> tuple[bool, str]:
+    """服务启动/重启时发送通知。
+
+    无论成功或失败都会发送，让用户感知服务状态。
+    """
+    if not _serverchan_available():
+        return False, "未配置 SERVERCHAN_SENDKEY，跳过启动通知"
+
+    if success:
+        emoji, level, status = "✅", "info", "启动成功"
+    else:
+        emoji, level, status = "🚨", "critical", "启动失败"
+
+    title = f"{emoji} 服务{status}"
+    message = f"YMKY 产销量管理系统 v{version} 已在服务器上 {status}"
+    lines = [f"📌 {message}", f"🕐 {now_str()}"]
+    if version:
+        lines.append(f"📦 版本：{version}")
+    if detail:
+        lines.append(f"📋 详情：{detail}")
+
     return send_serverchan(title=title, desp="\n".join(lines))
