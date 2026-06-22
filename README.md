@@ -7,12 +7,17 @@
 
 ---
 
-## 版权与使用
+## 版权与许可
 
-**Copyright © 2026–2027 宛皓 (Wan Hao). All Rights Reserved.**
+**Copyright © 2026–2027 宛皓 (Wan Hao).**
 
-本软件著作权由宛皓完整持有。仅授权「云南云煤矿业开发有限公司」及其关联方在内部业务系统中非排他、不可转让地使用。未经著作权人书面许可，禁止复制、反编译、转售或二次发行。详见 [`LICENSE`](./LICENSE)。
+本程序是自由软件：你可以再分发之和/或依照由自由软件基金会发布的 GNU Affero General Public License 之条款修改之，无论是许可证的第 3 版或是（按你的意见）任何以后版。
 
+本程序为发布以期有用，但**不附有任何担保**；甚至不保证适销性或特定目的的适用性。详请参阅 GNU Affero General Public License。
+
+你应已收到一份 GNU Affero General Public License 的副本。如果尚未收到，请访问 <https://www.gnu.org/licenses/>。
+
+完整许可证文本见 [`LICENSE`](./LICENSE)。
 ---
 
 ## 功能概览
@@ -209,3 +214,4 @@ curl -s http://127.0.0.1:8080/health
 ```powershell
 python -m py_compile app/main.py app/storage.py app/report_engine.py app/services/notify.py
 ```
+
