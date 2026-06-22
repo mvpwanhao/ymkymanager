@@ -104,7 +104,6 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
 
 首次运行会在 `data/` 下创建台账空表与 `data/exports/`；请确保报表模板 `sjcl1.xlsx`、`nybb.xlsx` 已放在 `data/`（仓库可能仅含部分模板文件）。
 
-自动化助手在本仓库的约定：[`AGENTS.md`](./AGENTS.md)。
 
 ---
 
@@ -201,8 +200,6 @@ curl -s http://127.0.0.1:8080/health
 | 文档 | 内容 |
 |------|------|
 | [`CHANGELOG.md`](./CHANGELOG.md) | 版本变更记录 |
-| [`AGENTS.md`](./AGENTS.md) | Cursor / 自动化助手协作约定 |
-| [`docs/DEPLOY_SYNC.md`](./docs/DEPLOY_SYNC.md) | Gitee 同步与 systemd 部署 |
 | [`docs/DOCKER.md`](./docs/DOCKER.md) | Docker 构建、迁移、排障 |
 | [`docs/SAKURA_TUNNEL.md`](./docs/SAKURA_TUNNEL.md) | SakuraFrp 内网穿透 |
 | [`docs/CLOUDFLARE_TUNNEL.md`](./docs/CLOUDFLARE_TUNNEL.md) | Cloudflare Tunnel |
