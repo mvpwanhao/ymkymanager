@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 # 本文件为「云煤矿业产销量管理系统」的组成部分。
 # 仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
 # 未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
@@ -13,6 +13,8 @@ from urllib import parse, request
 
 from app.config import get_settings
 from app.timeutil import now_str
+
+ALERT_LEVEL_EMOJI = {"critical": "🚨", "error": "❌", "warning": "⚠️", "info": "ℹ️"}
 
 
 # ── 低层 API ──────────────────────────────────────────
@@ -60,7 +62,7 @@ def send_serverchan(*, title: str, desp: str) -> tuple[bool, str]:
         return False, f"微信提醒发送异常：{e!s}"
 
 
-# ── 填报成功通知（保留原有功能）────────────────────────
+# ── 异常告警通知────────────────────────
 
 
 def notify_alert(
@@ -105,30 +107,3 @@ def notify_alert(
         lines.append(f"```\n{tb}\n```")
 
     return send_serverchan(title=full_title, desp="\n".join(lines))
-
-
-# ── 启动通知（新增）────────────────────────────────────
-
-
-def notify_startup(*, success: bool, version: str, detail: str = "") -> tuple[bool, str]:
-    """服务启动/重启时发送通知。
-
-    无论成功或失败都会发送，让用户感知服务状态。
-    """
-    if not _serverchan_available():
-        return False, "未配置 SERVERCHAN_SENDKEY，跳过启动通知"
-
-    if success:
-        emoji, level, status = "✅", "info", "启动成功"
-    else:
-        emoji, level, status = "🚨", "critical", "启动失败"
-
-    title = f"{emoji} 服务{status}"
-    message = f"YMKY 产销量管理系统 v{version} 已在服务器上 {status}"
-    lines = [f"📌 {message}", f"🕐 {now_str()}"]
-    if version:
-        lines.append(f"📦 版本：{version}")
-    if detail:
-        lines.append(f"📋 详情：{detail}")
-
-    return send_serverchan(title=title, desp="\n".join(lines))

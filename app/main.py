@@ -47,7 +47,7 @@ from app.report_engine import (
     generate_sjcl_report,
     read_sjcl_v2_daily_plans_from_template,
 )
-from app.services.notify import notify_alert, notify_startup
+from app.services.notify import notify_alert
 from app.storage import (
     append_records,
     dataframe_actual_production_new_row,
@@ -156,15 +156,6 @@ async def lifespan(app: FastAPI):
         )
     if s.is_production and s.local_debug_password_autofill:
         log.warning("YMKY_ENV=production 但 YMKY_LOCAL_DEBUG 已开启，生产环境请关闭。")
-    # ?? ??????????? Server? ??????
-    if s.is_production:
-        from app.release_version import read_version_from_file
-        v = s.app_version.strip() or read_version_from_file()
-        ok, msg = notify_startup(success=True, version=v)
-        if ok:
-            log.info("???????")
-        else:
-            log.warning("????????%s", msg)
     yield
 
 
