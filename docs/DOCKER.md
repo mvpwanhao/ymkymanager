@@ -29,14 +29,14 @@ sudo bash scripts/server_install_docker_ubuntu.sh
 
 ## 1b. 从 systemd + venv 迁到 Docker（服务器已在跑旧方式）
 
-假定项目仍在例如 `/home/wanhao/ymky_manager`，且 `.env`、`data/` 已就绪：
+假定项目仍在例如 `/home/<user>/ymky_manager`，且 `.env`、`data/` 已就绪：
 
 1. 拉最新代码：`git pull origin main`
 2. 一次性安装 Docker：`sudo bash scripts/server_install_docker_ubuntu.sh`
 3. **同一 SSH** 会话内激活 docker 组成员：`newgrp docker`（或重新登录 SSH）
 4. 停止旧服务并用 Compose 拉起：`bash scripts/server_migrate_systemd_to_docker.sh`
 5. 若使用 cron 自动更新，把任务里的 `server_git_pull_deploy.sh` 改成 `server_git_pull_deploy_docker.sh`
-6. 本机手动触发远端更新（PowerShell）：`.\scripts\deploy_via_git.ps1 -Docker -SshTarget wanhao@<IP>`
+6. 本机手动触发远端更新（PowerShell）：`.\scripts\deploy_via_git.ps1 -Docker -SshTarget <user>@<server-ip>`
 
 `ymky` systemd 单元会在迁移时被 `disable`；勿与容器同时监听 `8080`。
 
@@ -61,7 +61,7 @@ nano .env
 - 若设置 **`YMKY_TRUSTED_HOSTS`**：须包含局域网访问时用到的 **主机名或 IP（不含端口）**，例如局域网用 IP 打开时：
 
 ```env
-YMKY_TRUSTED_HOSTS=192.168.14.222,localhost,127.0.0.1
+YMKY_TRUSTED_HOSTS=<server-ip>,localhost,127.0.0.1
 ```
 
 不设置 `YMKY_TRUSTED_HOSTS`（留空）时，不进行 Host 校验，一般也可在纯内网调试。
@@ -94,12 +94,12 @@ docker compose ps
 同一 LAN 的设备浏览器打开：
 
 ```text
-http://192.168.14.222:8080
+http://<server-ip>:8080
 ```
 
 （若小主机 IP 变化，改用实际 IP；端口若在 `docker-compose.yml` 里改过，同步改端口。）
 
-健康检查：`http://192.168.14.222:8080/health`。
+健康检查：`http://<server-ip>:8080/health`。
 
 ## 6. 防火墙（若启用 UFW）
 

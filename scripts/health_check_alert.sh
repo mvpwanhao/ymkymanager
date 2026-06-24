@@ -3,9 +3,9 @@
 # 用于生产服务器，由 cron 定期执行（建议每 5 分钟）。
 # 若 /health 返回非 200 或超时，则通过 Server酱 推送告警到微信。
 #
-# 安装到 cron（以 wanhao 用户）：
+# 安装到 cron（以 <user> 用户）：
 #   crontab -e
-#   */5 * * * * /home/wanhao/ymky_manager/scripts/health_check_alert.sh >> /home/wanhao/ymky_manager/logs/health.log 2>&1
+#   */5 * * * * /home/<user>/ymky_manager/scripts/health_check_alert.sh >> /home/<user>/ymky_manager/logs/health.log 2>&1
 #
 # 依赖：curl（通常已安装）
 

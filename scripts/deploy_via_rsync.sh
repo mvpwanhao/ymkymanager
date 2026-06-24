@@ -3,16 +3,16 @@
 # ?????? rsync ?? ssh ?????
 #
 # ???
-#   export DEPLOY_SSH=wanhao@192.168.14.222
-#   export DEPLOY_PATH=/home/wanhao/ymky_manager
+#   export DEPLOY_SSH=<user>@<server-ip>
+#   export DEPLOY_PATH=/home/<user>/ymky_manager
 #   chmod +x scripts/deploy_via_rsync.sh
 #   ./scripts/deploy_via_rsync.sh
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEPLOY_SSH="${DEPLOY_SSH:-wanhao@192.168.14.222}"
-DEPLOY_PATH="${DEPLOY_PATH:-/home/wanhao/ymky_manager}"
+DEPLOY_SSH="${DEPLOY_SSH:-<user>@<server-ip>}"
+DEPLOY_PATH="${DEPLOY_PATH:-/home/<user>/ymky_manager}"
 
 echo "Sync from: $ROOT"
 echo "Target:    $DEPLOY_SSH:$DEPLOY_PATH"

@@ -2,13 +2,13 @@
 # No-Docker deploy: git pull -> pip if requirements changed -> systemctl restart
 #
 # Cron example:
-#   */5 * * * * /home/wanhao/ymky_manager/scripts/server_git_pull_deploy.sh >> .../logs/pull.log 2>&1
+#   */5 * * * * /home/<user>/ymky_manager/scripts/server_git_pull_deploy.sh >> .../logs/pull.log 2>&1
 #
 # Env (optional):
 #   GIT_REMOTE=origin
 #   DEPLOY_BRANCH=main
 #   SERVICE_NAME=ymky
-#   VENV_PATH=/home/wanhao/ymky_manager/.venv
+#   VENV_PATH=/home/<user>/ymky_manager/.venv
 
 set -euo pipefail
 

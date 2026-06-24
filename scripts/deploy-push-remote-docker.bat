@@ -10,8 +10,8 @@ REM PowerShell equiv: .\scripts\deploy_via_git.ps1 -Docker -SshTarget ... -Branc
 REM 说明：控制台使用 UTF-8（chcp 65001），与本文件 BOM-UTF8 编码一致可避免中文乱码。
 REM ------------------------------------------------------------------------------
 
-set "REMOTE_SSH=wanhao@192.168.14.222"
-set "REMOTE_DEPLOY_SCRIPT=/home/wanhao/ymky_manager/scripts/server_git_pull_deploy_docker.sh"
+set "REMOTE_SSH=<user>@<server-ip>"
+set "REMOTE_DEPLOY_SCRIPT=/home/<user>/ymky_manager/scripts/server_git_pull_deploy_docker.sh"
 
 set "GIT_REMOTE=origin"
 set "GIT_BRANCH=main"

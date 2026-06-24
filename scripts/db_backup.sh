@@ -2,7 +2,7 @@
 # ── Supabase PostgreSQL 自动备份脚本 ──────────────────
 # 用法：./scripts/db_backup.sh
 # 建议 cron：每天凌晨 4:00 执行
-#   0 4 * * * /home/wanhao/ymky_manager/scripts/db_backup.sh >> /home/wanhao/ymky_manager/logs/db_backup.log 2>&1
+#   0 4 * * * /home/<user>/ymky_manager/scripts/db_backup.sh >> /home/<user>/ymky_manager/logs/db_backup.log 2>&1
 #
 # 备份策略：
 #   - 完整 SQL 备份（pg_dump），保留最近 7 天

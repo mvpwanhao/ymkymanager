@@ -17,13 +17,13 @@
 
 - 如需同时备份到 GitHub：`git push github main`（已为常见配置保留 `github` 远端）。
 - 服务器长期保留各自的 `.env` 与真实 `data/`，勿被本机整目录覆盖。
-- 下文默认用户名 **wanhao**，目录 **`/home/wanhao/ymky_manager`**。
+- 下文默认用户名 **<user>**，目录 **`/home/<user>/ymky_manager`**。
 
 ---
 
 ## 服务器一次性准备
 
-> **终端说明：** 自本节起，`apt`、`git clone`、`nano`、`systemctl`、`crontab` 等均假设你已 **SSH 接入 Ubuntu**（如 `ssh wanhao@<主机 IP>`），在远端终端里执行。**Windows PowerShell / 编辑器**仅在「本机日常」「手动触发部署」等小节出现。
+> **终端说明：** 自本节起，`apt`、`git clone`、`nano`、`systemctl`、`crontab` 等均假设你已 **SSH 接入 Ubuntu**（如 `ssh <user>@<主机 IP>`），在远端终端里执行。**Windows PowerShell / 编辑器**仅在「本机日常」「手动触发部署」等小节出现。
 
 ### 0）系统依赖（Ubuntu）
 
@@ -39,8 +39,8 @@ sudo apt install -y git python3 python3-pip python3-venv
 **推荐使用 HTTPS（公开仓库可读）：**
 
 ```bash
-git clone https://gitee.com/mvpwanhao/ykmymanager.git /home/wanhao/ymky_manager
-cd /home/wanhao/ymky_manager
+git clone https://gitee.com/mvpwanhao/ykmymanager.git /home/<user>/ymky_manager
+cd /home/<user>/ymky_manager
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
@@ -50,7 +50,7 @@ python -m pip install -r requirements.txt
 **若使用 Gitee SSH（已配置密钥）：**
 
 ```bash
-git clone git@gitee.com:mvpwanhao/ykmymanager.git /home/wanhao/ymky_manager
+git clone git@gitee.com:mvpwanhao/ykmymanager.git /home/<user>/ymky_manager
 ```
 
 **备选：仅从 GitHub 拉取**
@@ -70,7 +70,7 @@ mkdir -p data logs
 ### 3）先前台跑通（确认无误再上 systemd）
 
 ```bash
-cd /home/wanhao/ymky_manager
+cd /home/<user>/ymky_manager
 source .venv/bin/activate
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
@@ -88,10 +88,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=wanhao
-WorkingDirectory=/home/wanhao/ymky_manager
+User=<user>
+WorkingDirectory=/home/<user>/ymky_manager
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/home/wanhao/ymky_manager/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8080
+ExecStart=/home/<user>/ymky_manager/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=3
 
@@ -112,7 +112,7 @@ sudo visudo -f /etc/sudoers.d/ymky-deploy
 ```
 
 ```text
-wanhao ALL=(root) NOPASSWD: /bin/systemctl restart ymky
+<user> ALL=(root) NOPASSWD: /bin/systemctl restart ymky
 ```
 
 ---
@@ -122,7 +122,7 @@ wanhao ALL=(root) NOPASSWD: /bin/systemctl restart ymky
 脚本逻辑：`git pull` → 若 `requirements.txt` 变化则 `pip install` → `systemctl restart ymky`。
 
 ```bash
-cd /home/wanhao/ymky_manager
+cd /home/<user>/ymky_manager
 chmod +x scripts/server_git_pull_deploy.sh
 mkdir -p logs
 ./scripts/server_git_pull_deploy.sh
@@ -130,7 +130,7 @@ crontab -e
 ```
 
 ```text
-*/5 * * * * /home/wanhao/ymky_manager/scripts/server_git_pull_deploy.sh >> /home/wanhao/ymky_manager/logs/pull.log 2>&1
+*/5 * * * * /home/<user>/ymky_manager/scripts/server_git_pull_deploy.sh >> /home/<user>/ymky_manager/logs/pull.log 2>&1
 ```
 
 环境变量（可选）：`GIT_REMOTE=origin`、`DEPLOY_BRANCH=main`。`origin` 指向 Gitee 时，在内地一般无需额外代理。
@@ -156,13 +156,13 @@ git push origin main
 ## 手动触发部署
 
 ```powershell
-ssh wanhao@<Ubuntu_IP> "cd /home/wanhao/ymky_manager && ./scripts/server_git_pull_deploy.sh"
+ssh <user>@<Ubuntu_IP> "cd /home/<user>/ymky_manager && ./scripts/server_git_pull_deploy.sh"
 ```
 
 或：
 
 ```powershell
-.\scripts/deploy_via_git.ps1 -SshTarget wanhao@<Ubuntu_IP> -RemoteCd "/home/wanhao/ymky_manager"
+.\scripts/deploy_via_git.ps1 -SshTarget <user>@<Ubuntu_IP> -RemoteCd "/home/<user>/ymky_manager"
 ```
 
 ---
