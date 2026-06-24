@@ -34,7 +34,7 @@
 
 | 属性 | 值 |
 |------|-----|
-| 操作系统 | Ubuntu Server |
+| 操作系统 | Ubuntu 26.04 LTS (Resolute Raccoon) |
 | 内网 IP | `192.168.14.222` |
 | 公网域名 | `ymky.haolab.top`（通过 Cloudflare Tunnel 映射） |
 | SSH 用户 | `wanhao` |
