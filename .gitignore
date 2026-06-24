@@ -99,5 +99,16 @@ _tmp_*.py
 # AI ��������/�����ļ�
 .workbuddy/
 AGENTS.md
+
+# Research papers and processing scripts (not core project)
+paper/
+scripts/modify_paper.py
+scripts/patch_*.py
+scripts/polish_*.py
+scripts/replacements_v2.json
+
+# Local dev helpers and temp files
+ckref.html
+start_server.bat
 # Internal ops manual (contains server IPs, credentials)
 agent.md
