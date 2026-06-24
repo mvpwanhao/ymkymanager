@@ -96,7 +96,8 @@ _tmp_*.py
 # ── 9. Git 离线备份产物（应放在仓库外，但万一在仓库内做了，也别误提交）────
 *.bundle
 
-# AI ��������/�����ļ�
+# AI ��������/�����ļ�
 .workbuddy/
 AGENTS.md
-
+# Internal ops manual (contains server IPs, credentials)
+agent.md
