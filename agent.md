@@ -49,7 +49,7 @@
 ssh wanhao@192.168.14.222
 ```
 
-> ⚠️ 以上服务器信息（IP、域名、密码、部署方式等）部分为 AI 推断，**需用户逐一核实后更新**。首次连接后建议升级为密钥认证。
+> ⚠️ 首次连接后，建议升级为密钥认证（后续可根据需要配置）。
 
 ---
 
@@ -96,7 +96,22 @@ ssh wanhao@192.168.14.222
 步骤 1: 本地开发（你作为 AI 助手在本地改代码）
 步骤 2: 在本地启动 uvicorn --reload 验证（端口 8080）
 步骤 3: 验证无误后 commit + push 到 Gitee（origin main）
-步骤 4: SSH 到服务器手动 git pull + docker compose up -d（当前无 cron 自动拉取）
+步骤 4: 服务器 cron 定时执行 scripts/server_git_pull_deploy_docker.sh（建议每 5 分钟），自动检测 Gitee 变更并部署
+
+服务器 cron 配置（以 wanhao 用户执行）：
+
+```bash
+# 编辑 crontab
+crontab -e
+# 添加以下行（每 5 分钟检查并自动部署）
+*/5 * * * * /home/wanhao/ymky_manager/scripts/server_git_pull_deploy_docker.sh >> /home/wanhao/ymky_manager/logs/pull.log 2>&1
+```
+
+首次执行前确保脚本有执行权限：
+```bash
+chmod +x /home/wanhao/ymky_manager/scripts/server_git_pull_deploy_docker.sh
+mkdir -p /home/wanhao/ymky_manager/logs
+```
 ```
 
 > ⚠️ **第 2 步「本地验证」不可跳过。** 任何代码改动（模板、静态资源、`app/`、依赖等）必须先在本地跑通。
@@ -402,5 +417,6 @@ cd /home/wanhao/ymky_manager && git pull origin main && docker compose up -d
 |------|------|------|
 | v1.0 | 2026-06-22 | 初始版本，与用户共同制定 |
 | v1.1 | 2026-06-24 | 移除 cron 自动拉取误报、去除 SSH 明文密码、清除矛盾告警描述、标记未核实信息 |
+| v1.2 | 2026-06-24 | 确认服务器信息（IP/域名/穿透/部署方式/GitHub镜像）；补充 cron 自动部署配置说明 |
 
 ---

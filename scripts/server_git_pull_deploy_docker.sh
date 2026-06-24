@@ -31,7 +31,12 @@ git pull "$REMOTE" "$BRANCH"
 
 after_head="$(git rev-parse HEAD)"
 
-if [[ "$before_head" != "$after_head" ]] && needs_compose_build "$before_head" "$after_head"; then
+if [[ "$before_head" == "$after_head" ]]; then
+  echo "$(date -Is) no changes, skip"
+  exit 0
+fi
+
+if needs_compose_build "$before_head" "$after_head"; then
   docker compose build
 fi
 
