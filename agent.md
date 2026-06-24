@@ -34,11 +34,11 @@
 
 | 属性 | 值 |
 |------|-----|
-| 操作系统 | Ubuntu Server（版本待确认） |
+| 操作系统 | Ubuntu Server |
 | 内网 IP | `192.168.14.222` |
 | 公网域名 | `ymky.haolab.top`（通过 Cloudflare Tunnel 映射） |
 | SSH 用户 | `wanhao` |
-| SSH 密码 | `[待确认]` |
+| SSH 密码 | `[待用户提供或配置密钥认证]` |
 | 项目路径 | `/home/wanhao/ymky_manager` |
 | 部署方式 | Docker Compose |
 
