@@ -7,10 +7,6 @@ pydantic-settings>=2.0.0
 pandas>=2.0.0
 filelock>=3.13.0
 openpyxl>=3.1.0
-plotly>=5.18.0
-# Kaleido 1.x 走 choreographer + 系统 Chrome，与当前镜像内为 0.2.x（自带 Chromium）准备的依赖不一致。
-kaleido>=0.2.1,<1.0.0
-pillow>=10.0.0
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 tzdata>=2024.1

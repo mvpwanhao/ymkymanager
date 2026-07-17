@@ -45,6 +45,12 @@ HOST_PORT="${HOST_DB%%/*}"
 DB_NAME="${HOST_DB#*/}"
 DB_NAME="${DB_NAME%%\?*}"                 # 去掉查询参数
 
+# 从 host:port 中提取端口（默认 5432）
+DB_PORT="${HOST_PORT##*:}"
+if [ "$DB_PORT" = "$HOST_PORT" ]; then
+    DB_PORT="5432"
+fi
+
 # 导出密码环境变量供 pg_dump 使用
 # URL??????? %40 ????
 DB_PASS_DECODED=$(python3 -c "import sys,urllib.parse; sys.stdout.write(urllib.parse.unquote(sys.argv[1]))" "$DB_PASS" 2>/dev/null || echo "$DB_PASS")
@@ -57,12 +63,46 @@ WEEKDAY="$(date +%u)"  # 1=周一, 7=周日
 echo "$(date -Is) 备份到: ${BACKUP_FILE}" >> "$LOG_FILE"
 
 # 执行备份
-if pg_dump -h "$HOST" -p 6543 -U "$DB_USER" -d "$DB_NAME" --no-owner --no-acl | gzip > "$BACKUP_FILE"; then
+if pg_dump -h "$HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" --no-owner --no-acl | gzip > "$BACKUP_FILE"; then
     FILE_SIZE="$(du -h "$BACKUP_FILE" | cut -f1)"
     echo "$(date -Is) OK: 备份完成，大小 ${FILE_SIZE}" >> "$LOG_FILE"
 else
     echo "$(date -Is) ERROR: pg_dump 执行失败" >> "$LOG_FILE"
     exit 1
+fi
+
+# ── 备份验证 ───────────────────────────────
+VERIFY_OK=true
+
+# 1) 文件非空检查
+ACTUAL_BYTES="$(stat -c %s "$BACKUP_FILE" 2>/dev/null || stat -f %z "$BACKUP_FILE" 2>/dev/null || echo 0)"
+if [ "$ACTUAL_BYTES" -lt 100 ]; then
+    echo "$(date -Is) VERIFY FAIL: 备份文件过小（${ACTUAL_BYTES} bytes），可能为空" >> "$LOG_FILE"
+    VERIFY_OK=false
+fi
+
+# 2) gzip 完整性检查
+if [ "$VERIFY_OK" = true ]; then
+    if gzip -t "$BACKUP_FILE" 2>/dev/null; then
+        echo "$(date -Is) VERIFY OK: gzip 完整性检查通过" >> "$LOG_FILE"
+    else
+        echo "$(date -Is) VERIFY FAIL: gzip 完整性检查失败，备份文件可能损坏" >> "$LOG_FILE"
+        VERIFY_OK=false
+    fi
+fi
+
+# 3) SQL 内容验证：检查是否包含预期表名
+if [ "$VERIFY_OK" = true ]; then
+    DUMP_PREVIEW=$(zcat "$BACKUP_FILE" 2>/dev/null | grep -c -E "CREATE TABLE|COPY.*(actual_production|energy_reporting|actual_sales)" || true)
+    if [ "$DUMP_PREVIEW" -lt 1 ]; then
+        echo "$(date -Is) VERIFY WARN: 未在备份中检测到预期表名，请人工检查" >> "$LOG_FILE"
+    else
+        echo "$(date -Is) VERIFY OK: 检测到 ${DUMP_PREVIEW} 处表定义/数据引用" >> "$LOG_FILE"
+    fi
+fi
+
+if [ "$VERIFY_OK" = false ]; then
+    echo "$(date -Is) ERROR: 备份验证失败，保留文件供人工检查: ${BACKUP_FILE}" >> "$LOG_FILE"
 fi
 
 # ── 清理旧备份 ─────────────────────────

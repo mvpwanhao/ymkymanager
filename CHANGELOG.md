@@ -4,6 +4,20 @@
 
 **约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
 
+## [1.4.3] - 2026-07-17
+
+### 工程
+
+- **P0-1 清理 Plotly/Kaleido 死代码**：删除 `app/dashboard_data.py`、`app/visual_export.py`、`static/plotly-theme.js`；将 `exclude_mines` 和 `content_disposition_attachment` 迁移到新建 `app/utils.py`。
+- **P0-2 瘦身依赖**：`requirements.txt` 移除 `plotly`、`kaleido`、`pillow`；Dockerfile 删除 kaleido 相关系统依赖（GTK3/NSS/fontconfig 等），预计减少镜像约 500 MB。
+- **P0-3 Dockerfile 修复**：补全 `COPY scripts ./scripts`；`db_backup.sh` 硬编码端口 `-p 6543` 改为从 `DATABASE_URL` 动态解析。
+- **P1-4 单元测试**：新建 `tests/` 目录，含 `conftest.py`、`test_timeutil.py`、`test_utils.py`、`test_viz_engine.py`、`test_storage.py`，46 个测试全部通过；新增 `requirements-dev.txt`。
+- **P1-5 拆分 main.py**：1,420 行精简到 115 行 + 7 个路由模块（`app/routes/health.py`、`auth.py`、`entry.py`、`report.py`、`viz.py`、`admin.py`、`pages.py`），共享函数提取到 `app/helpers.py`。
+- **P1-6 异常处理 + 登录限流**：`storage.py` 8 处 `except Exception` 添加 `exc_info=True` 记录完整 traceback；`auth.py` 新增登录限流（5 次/60 秒）。
+- **P2-7 清理临时文件**：删除 13+ 个临时调试文件和 8 个论文相关废弃脚本。
+- **P2-8 _PENDING_SYNC 持久化**：将内存标记 `_PENDING_SYNC` 持久化到 `data/runtime/pending_sync.flag` 文件，容器重启后自动恢复状态并触发 DB 同步，避免数据丢失。
+- **P2-9 备份验证机制**：`db_backup.sh` 新增三步备份验证（文件大小、gzip 完整性、SQL 表名检查）；新建 `scripts/db_verify_backup.sh` 独立验证脚本。
+
 ## [1.4.2] - 2026-07-17
 
 ### 优化

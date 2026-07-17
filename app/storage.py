@@ -5,6 +5,7 @@
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -20,6 +21,46 @@ _ENGINE_READY = False
 _ENGINE_LAST_ATTEMPT: float = 0.0
 _ENGINE_RETRY_INTERVAL: float = 30.0
 _PENDING_SYNC = False
+
+
+def _pending_sync_file() -> str:
+    """返回持久化标记文件路径（data/runtime/pending_sync.flag）。"""
+    from app.config import get_settings
+    s = get_settings()
+    d = s.runtime_dir
+    return str(d / "pending_sync.flag")
+
+
+def _set_pending_sync(value: bool) -> None:
+    """原子地更新内存标记并同步到磁盘文件，确保容器重启后不丢失。"""
+    global _PENDING_SYNC
+    _PENDING_SYNC = value
+    try:
+        flag_path = _pending_sync_file()
+        if value:
+            os.makedirs(os.path.dirname(flag_path) or ".", exist_ok=True)
+            Path(flag_path).touch()
+            _log.info("pending_sync 标记已持久化到 %s", flag_path)
+        else:
+            if os.path.exists(flag_path):
+                os.remove(flag_path)
+                _log.info("pending_sync 标记文件已清除")
+    except Exception as exc:
+        _log.warning("pending_sync 标记文件操作失败（不影响内存状态）: %s", exc, exc_info=True)
+
+
+def _restore_pending_sync() -> None:
+    """模块加载时从磁盘恢复 _PENDING_SYNC 状态。"""
+    global _PENDING_SYNC
+    try:
+        if os.path.exists(_pending_sync_file()):
+            _PENDING_SYNC = True
+            _log.info("从磁盘恢复 pending_sync = True（上次容器运行期间有未同步数据）")
+    except Exception:
+        pass  # 首次运行时 data/runtime 可能不存在，忽略
+
+
+_restore_pending_sync()
 
 FILE_TABLE_MAP = {
     "actual_production.xlsx": "actual_production",
@@ -202,7 +243,7 @@ def _get_engine() -> Optional[Engine]:
             _try_sync_pending(engine)
         return _ENGINE
     except Exception as exc:
-        _log.error("数据库连接失败（%.0f 秒后重试）: %s", _ENGINE_RETRY_INTERVAL, exc)
+        _log.error("数据库连接失败（%.0f 秒后重试）: %s", _ENGINE_RETRY_INTERVAL, exc, exc_info=True)
         _ENGINE = None
         _ENGINE_READY = True
         return None
@@ -297,7 +338,6 @@ def _sync_key_cols(table_name: str) -> list[str]:
 
 def _try_sync_pending(engine: Engine) -> None:
     """DB 重连后，将 Excel 中存在但 DB 缺失的记录回灌到 DB。"""
-    global _PENDING_SYNC
     if not _PENDING_SYNC:
         return
 
@@ -339,9 +379,9 @@ def _try_sync_pending(engine: Engine) -> None:
             missing.to_sql(table_name, engine, if_exists="append", index=False)
             _log.info("sync [%s] 已回灌 %d 条记录到 DB", table_name, len(missing))
         except Exception as exc:
-            _log.error("sync [%s] 同步失败: %s", table_name, exc)
+            _log.error("sync [%s] 同步失败: %s", table_name, exc, exc_info=True)
 
-    _PENDING_SYNC = False
+    _set_pending_sync(False)
     _log.info("pending sync 已完成")
 
 
@@ -359,7 +399,7 @@ def read_records(file_path: str) -> pd.DataFrame:
             _log.info("read_records [DB] table=%s rows=%d", table_name, len(raw))
             return reorder_ledger_dataframe_for_table(table_name, raw)
         except Exception as exc:
-            _log.error("read_records [DB] 查询失败 table=%s，降级读 Excel: %s", table_name, exc)
+            _log.error("read_records [DB] 查询失败 table=%s，降级读 Excel: %s", table_name, exc, exc_info=True)
 
     if not os.path.exists(file_path):
         _log.warning("read_records 文件不存在且 DB 不可用: %s", file_path)
@@ -371,12 +411,11 @@ def read_records(file_path: str) -> pd.DataFrame:
             return reorder_ledger_dataframe_for_table(table_name, raw)
         return raw
     except Exception as exc:
-        _log.error("read_records [Excel] 读取失败 file=%s: %s", file_path, exc)
+        _log.error("read_records [Excel] 读取失败 file=%s: %s", file_path, exc, exc_info=True)
         return pd.DataFrame()
 
 
 def append_records(file_path: str, df_new: pd.DataFrame) -> None:
-    global _PENDING_SYNC
     df_new = _normalize_ledger_time_columns(df_new)
     engine = _get_engine()
     table_name = _table_name(file_path)
@@ -390,22 +429,21 @@ def append_records(file_path: str, df_new: pd.DataFrame) -> None:
             df_new.to_sql(table_name, engine, if_exists="append", index=False)
             db_ok = True
         except Exception as exc:
-            _log.error("append_records [DB] 写入失败，数据仅存 Excel: %s", exc)
-            _PENDING_SYNC = True
+            _log.error("append_records [DB] 写入失败，数据仅存 Excel: %s", exc, exc_info=True)
+            _set_pending_sync(True)
 
     if not db_ok and engine is None:
-        _PENDING_SYNC = True
+        _set_pending_sync(True)
 
     try:
         _append_to_excel(file_path, df_new, table_name)
     except Exception as exc:
-        _log.error("append_records [Excel write-through] 写入失败: %s", exc)
+        _log.error("append_records [Excel write-through] 写入失败: %s", exc, exc_info=True)
         if not db_ok:
             raise
 
 
 def overwrite_records(file_path: str, df: pd.DataFrame) -> None:
-    global _PENDING_SYNC
     df = _normalize_ledger_time_columns(df)
     engine = _get_engine()
     table_name = _table_name(file_path)
@@ -419,17 +457,17 @@ def overwrite_records(file_path: str, df: pd.DataFrame) -> None:
             df.to_sql(table_name, engine, if_exists="replace", index=False)
             db_ok = True
         except Exception as exc:
-            _log.error("overwrite_records [DB] 写入失败，数据仅存 Excel: %s", exc)
-            _PENDING_SYNC = True
+            _log.error("overwrite_records [DB] 写入失败，数据仅存 Excel: %s", exc, exc_info=True)
+            _set_pending_sync(True)
 
     if not db_ok and engine is None:
-        _PENDING_SYNC = True
+        _set_pending_sync(True)
 
     try:
         _log.info("overwrite_records [Excel write-through] file=%s rows=%d", file_path, len(df))
         _overwrite_excel(file_path, df)
     except Exception as exc:
-        _log.error("overwrite_records [Excel write-through] 写入失败: %s", exc)
+        _log.error("overwrite_records [Excel write-through] 写入失败: %s", exc, exc_info=True)
         if not db_ok:
             raise
 

@@ -9,11 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# 默认 sans-serif 优先 CJK（供 Kaleido 内置 Chromium + fontconfig 选字）
-RUN mkdir -p /etc/fonts/conf.d
-COPY docker/fontconfig/65-ymky-cjk-sans.conf /etc/fonts/conf.d/65-ymky-cjk-sans.conf
-
-# 国内网络：将 bookworm / security 默认源换为清华镜像后再 apt install（含 Kaleido/Chromium 所需系统库）。
+# 国内网络：将 bookworm / security 默认源换为清华镜像后再 apt install。
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
     MIR="https://mirrors.tuna.tsinghua.edu.cn"; \
@@ -28,36 +24,7 @@ RUN set -eux; \
     done; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    at-spi2-core \
-    dbus \
     gcc \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    fontconfig \
-    fonts-liberation \
-    fonts-noto-cjk \
-    fonts-wqy-microhei \
-    fonts-wqy-zenhei \
-    libgbm1 \
-    libglib2.0-0 \
-    libgomp1 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libxrandr2 \
-    && fc-cache -fv \
-    && v="$(fc-list | grep -iE 'WenQuanYi Micro Hei|Noto Sans CJK SC' | head -n1)" \
-    && test -n "$v" \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -70,6 +37,7 @@ COPY VERSION .
 COPY app ./app
 COPY templates ./templates
 COPY static ./static
+COPY scripts ./scripts
 
 RUN mkdir -p /app/data /app/data/runtime /app/data/exports
 
