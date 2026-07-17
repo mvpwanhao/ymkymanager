@@ -77,7 +77,7 @@
       <thead>
         <tr>
           <th>煤矿名称</th>
-          <th>期间产量(吨)</th>
+          <th id="th-period-prod">期间产量(吨)</th>
           <th>周产量(吨)</th>
           <th>月累计产量(吨)</th>
           <th>年累计产量(吨)</th>
@@ -231,12 +231,13 @@
     document.getElementById("viz-mine-tfoot").innerHTML = tfoot;
   }
 
-  function renderProdBar(mineDetails) {
+  function renderProdBar(mineDetails, periodName) {
     var c = ensureChart("chart-prod-bar");
     if (!c) return;
     var names = mineDetails.map(function(m) { return m.name; });
     var periodProd = mineDetails.map(function(m) { return m.period_prod; });
     var yearProd = mineDetails.map(function(m) { return m.year_prod; });
+    var prodLabel = (periodName || "期间") + "产量";
 
     c.setOption({
       color: COLORWAY,
@@ -252,7 +253,7 @@
           return s;
         }
       }),
-      legend: { data: ["期间产量", "年累计产量"], top: 5, textStyle: { color: getTextColor() } },
+      legend: { data: [prodLabel, "年累计产量"], top: 5, textStyle: { color: getTextColor() } },
       grid: { left: "3%", right: "4%", bottom: "3%", top: 50, containLabel: true },
       xAxis: {
         type: "category", data: names,
@@ -266,7 +267,7 @@
         splitLine: { lineStyle: { color: getGridColor() } }
       },
       series: [
-        { name: "期间产量", type: "bar", data: periodProd, barGap: "10%", itemStyle: { borderRadius: [4, 4, 0, 0] } },
+        { name: prodLabel, type: "bar", data: periodProd, barGap: "10%", itemStyle: { borderRadius: [4, 4, 0, 0] } },
         { name: "年累计产量", type: "bar", data: yearProd, itemStyle: { borderRadius: [4, 4, 0, 0] } }
       ]
     });
@@ -314,16 +315,17 @@
     });
   }
 
-  function renderProdPie(mineDetails) {
+  function renderProdPie(mineDetails, periodName) {
     var c = ensureChart("chart-prod-pie");
     if (!c) return;
     var data = mineDetails.map(function(m) { return { name: m.name, value: m.period_prod }; });
     var total = data.reduce(function(s, d) { return s + d.value; }, 0);
+    var pieTitle = (periodName || "期间") + "总产量";
 
     c.setOption({
       color: COLORWAY,
       backgroundColor: getBgColor(),
-      title: { text: "期间总产量: " + fmtNum(total) + " 吨", left: "left", top: 0,
+      title: { text: pieTitle + ": " + fmtNum(total) + " 吨", left: "left", top: 0,
         textStyle: { color: getTextColor(), fontSize: 13, fontWeight: "normal" } },
       tooltip: tooltipBase({
         trigger: "item",
@@ -555,9 +557,12 @@
 
     renderKpis(data.kpis);
     renderMineTable(data.mine_details);
-    renderProdBar(data.mine_details);
+    var pn = data.period_name || "期间";
+    var th = document.getElementById("th-period-prod");
+    if (th) th.textContent = pn + "产量(吨)";
+    renderProdBar(data.mine_details, pn);
     renderSalesBar(data.mine_details);
-    renderProdPie(data.mine_details);
+    renderProdPie(data.mine_details, pn);
     renderSalesPie(data.mine_details);
     renderProdTrend(data.prod_trend, data.mine_prod_trend);
     renderSalesTrend(data.sales_trend, data.mine_sales_trend);

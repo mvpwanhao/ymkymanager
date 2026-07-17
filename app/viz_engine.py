@@ -477,10 +477,24 @@ def build_viz_data(
     tot_energy_prod = sum(v for v in energy_yest_prod.values())
     tot_energy_sales = sum(v for v in energy_yest_sales.values())
 
+    # ── 区间名称（用于动态标签）──
+    if period == "year":
+        period_name = "年度"
+    elif period == "month":
+        if stat_month:
+            try:
+                period_name = f"{int(stat_month.split('-')[1])}月"
+            except (ValueError, IndexError):
+                period_name = f"{end_date.month}月"
+        else:
+            period_name = f"{end_date.month}月"
+    else:
+        period_name = "期间"
+
     # ── KPI ──
     kpis = [
-        {"label": "期间产量", "value": round(period_prod, 2), "unit": "吨"},
-        {"label": "期间销量", "value": round(period_sales, 2), "unit": "吨"},
+        {"label": f"{period_name}产量", "value": round(period_prod, 2), "unit": "吨"},
+        {"label": f"{period_name}销量", "value": round(period_sales, 2), "unit": "吨"},
         {"label": "月累计自产煤销量", "value": round(month_sales, 2), "unit": "吨"},
         {"label": "年累计自产煤销量", "value": round(year_sales, 2), "unit": "吨"},
         {"label": "掺配煤年累计", "value": round(blended, 2), "unit": "吨"},
@@ -530,6 +544,7 @@ def build_viz_data(
     return {
         "period": period,
         "period_label": period_label,
+        "period_name": period_name,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
         "week_start": week_start.isoformat(),
@@ -583,11 +598,20 @@ def export_viz_excel(
         ws1["A3"] = f"能源局数据为 {data['yesterday']} 当天数据"
         ws1["A3"].font = Font(size=10, italic=True)
 
-    headers = [
-        "煤矿名称", "期间产量(吨)", "周产量(吨)", "月累计产量(吨)", "年累计产量(吨)",
-        "周销量(吨)", "月累计自产煤销量(吨)", "年累计自产煤销量(吨)",
-        "今日报能源局产量(吨)", "今日报能源局销量(吨)",
+    pn = data.get("period_name", "期间")
+    col_defs = [
+        ("煤矿名称", "name"),
+        (f"{pn}产量(吨)", "period_prod"),
+        ("周产量(吨)", "week_prod"),
+        ("月累计产量(吨)", "month_prod"),
+        ("年累计产量(吨)", "year_prod"),
+        ("周销量(吨)", "week_sales"),
+        ("月累计自产煤销量(吨)", "month_sales"),
+        ("年累计自产煤销量(吨)", "year_sales"),
+        ("今日报能源局产量(吨)", "energy_prod"),
+        ("今日报能源局销量(吨)", "energy_sales"),
     ]
+    headers = [h for h, _ in col_defs]
     header_row = 5
     hdr_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     hdr_font = Font(bold=True, color="FFFFFF", size=11)
@@ -598,28 +622,16 @@ def export_viz_excel(
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     for r, m in enumerate(md, start=header_row + 1):
-        vals = [
-            m["name"], m["period_prod"], m["week_prod"], m["month_prod"], m["year_prod"],
-            m["week_sales"], m["month_sales"], m["year_sales"],
-            m["energy_prod"], m["energy_sales"],
-        ]
+        vals = [m[key] for _, key in col_defs]
         for c, v in enumerate(vals, start=1):
             ws1.cell(row=r, column=c, value=v)
 
     # 合计行
     tot_row = header_row + len(md) + 1
     ws1.cell(row=tot_row, column=1, value="合计").font = Font(bold=True)
-    for c in range(2, len(headers) + 1):
-        col_vals = [m[headers[c - 1].replace("煤矿名称", "name")
-                       .replace("期间产量(吨)", "period_prod")
-                       .replace("周产量(吨)", "week_prod")
-                       .replace("月累计产量(吨)", "month_prod")
-                       .replace("年累计产量(吨)", "year_prod")
-                       .replace("周销量(吨)", "week_sales")
-                       .replace("月累计自产煤销量(吨)", "month_sales")
-                       .replace("年累计自产煤销量(吨)", "year_sales")
-                       .replace("今日报能源局产量(吨)", "energy_prod")
-                       .replace("今日报能源局销量(吨)", "energy_sales")] for m in md]
+    for c in range(2, len(col_defs) + 1):
+        key = col_defs[c - 1][1]
+        col_vals = [m[key] for m in md]
         ws1.cell(row=tot_row, column=c, value=round(sum(col_vals), 2)).font = Font(bold=True)
 
     for c in range(1, len(headers) + 1):
