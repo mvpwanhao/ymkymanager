@@ -234,9 +234,10 @@
   function renderProdBar(mineDetails, periodName) {
     var c = ensureChart("chart-prod-bar");
     if (!c) return;
-    var names = mineDetails.map(function(m) { return m.name; });
-    var periodProd = mineDetails.map(function(m) { return m.period_prod; });
-    var yearProd = mineDetails.map(function(m) { return m.year_prod; });
+    var filtered = mineDetails.filter(function(m) { return m.period_prod > 0 || m.year_prod > 0; });
+    var names = filtered.map(function(m) { return m.name; });
+    var periodProd = filtered.map(function(m) { return m.period_prod; });
+    var yearProd = filtered.map(function(m) { return m.year_prod; });
     var prodLabel = (periodName || "期间") + "产量";
 
     c.setOption({
@@ -276,10 +277,11 @@
   function renderSalesBar(mineDetails) {
     var c = ensureChart("chart-sales-bar");
     if (!c) return;
-    var names = mineDetails.map(function(m) { return m.name; });
-    var weekSales = mineDetails.map(function(m) { return m.week_sales; });
-    var monthSales = mineDetails.map(function(m) { return m.month_sales; });
-    var yearSales = mineDetails.map(function(m) { return m.year_sales; });
+    var filtered = mineDetails.filter(function(m) { return m.week_sales > 0 || m.month_sales > 0 || m.year_sales > 0; });
+    var names = filtered.map(function(m) { return m.name; });
+    var weekSales = filtered.map(function(m) { return m.week_sales; });
+    var monthSales = filtered.map(function(m) { return m.month_sales; });
+    var yearSales = filtered.map(function(m) { return m.year_sales; });
 
     c.setOption({
       color: COLORWAY,
@@ -318,7 +320,8 @@
   function renderProdPie(mineDetails, periodName) {
     var c = ensureChart("chart-prod-pie");
     if (!c) return;
-    var data = mineDetails.map(function(m) { return { name: m.name, value: m.period_prod }; });
+    var data = mineDetails.map(function(m) { return { name: m.name, value: m.period_prod }; })
+      .filter(function(d) { return d.value > 0; });
     var total = data.reduce(function(s, d) { return s + d.value; }, 0);
     var pieTitle = (periodName || "期间") + "总产量";
 
