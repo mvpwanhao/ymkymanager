@@ -133,7 +133,7 @@
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 .viz-tab { cursor:pointer; }
-#viz-kpis .kpi-card { min-width:140px; }
+#viz-kpis .kpi-card:not(.kpi-card--emphasis) { min-width:140px; }
 </style>
 
 <script>
@@ -184,7 +184,9 @@
     var html = "";
     for (var i = 0; i < kpis.length; i++) {
       var k = kpis[i];
-      html += '<div class="kpi-card">'
+      var cls = "kpi-card";
+      if (i === 0 || i === 1) cls += " kpi-card--emphasis";
+      html += '<div class="' + cls + '">'
         + '<div class="kpi-label">' + k.label + '</div>'
         + '<div class="kpi-value">' + fmtNum(k.value) + '<span class="kpi-unit">' + k.unit + '</span></div>'
         + '</div>';
@@ -231,7 +233,7 @@
     document.getElementById("viz-mine-tfoot").innerHTML = tfoot;
   }
 
-  function renderProdBar(mineDetails, periodName) {
+  function renderProdBar(mineDetails, periodName, period) {
     var c = ensureChart("chart-prod-bar");
     if (!c) return;
     var filtered = mineDetails.filter(function(m) { return m.period_prod > 0 || m.year_prod > 0; });
@@ -239,6 +241,24 @@
     var periodProd = filtered.map(function(m) { return m.period_prod; });
     var yearProd = filtered.map(function(m) { return m.year_prod; });
     var prodLabel = (periodName || "期间") + "产量";
+    var barLabel = {
+      show: true, position: "top", color: getTextColor(), fontSize: 11,
+      formatter: function(p) { return fmtNum(p.value); }
+    };
+
+    var series = [{
+      name: prodLabel, type: "bar", data: periodProd, barGap: "10%",
+      itemStyle: { borderRadius: [4, 4, 0, 0] }, label: barLabel
+    }];
+    var legendData = [prodLabel];
+    // 年度视图下 period_prod 与 year_prod 恒等，第二根柱冗余，仅保留年度产量
+    if (period !== "year") {
+      series.push({
+        name: "年累计产量", type: "bar", data: yearProd,
+        itemStyle: { borderRadius: [4, 4, 0, 0] }, label: barLabel
+      });
+      legendData.push("年累计产量");
+    }
 
     c.setOption({
       color: COLORWAY,
@@ -254,7 +274,7 @@
           return s;
         }
       }),
-      legend: { data: [prodLabel, "年累计产量"], top: 5, textStyle: { color: getTextColor() } },
+      legend: { data: legendData, top: 5, textStyle: { color: getTextColor() } },
       grid: { left: "3%", right: "4%", bottom: "3%", top: 50, containLabel: true },
       xAxis: {
         type: "category", data: names,
@@ -267,12 +287,7 @@
         axisLabel: { color: getAxisColor() },
         splitLine: { lineStyle: { color: getGridColor() } }
       },
-      series: [
-        { name: prodLabel, type: "bar", data: periodProd, barGap: "10%", itemStyle: { borderRadius: [4, 4, 0, 0] },
-          label: { show: true, position: "top", color: getTextColor(), fontSize: 11, formatter: function(p) { return fmtNum(p.value); } } },
-        { name: "年累计产量", type: "bar", data: yearProd, itemStyle: { borderRadius: [4, 4, 0, 0] },
-          label: { show: true, position: "top", color: getTextColor(), fontSize: 11, formatter: function(p) { return fmtNum(p.value); } } }
-      ]
+      series: series
     });
   }
 
@@ -568,7 +583,7 @@
     var pn = data.period_name || "期间";
     var th = document.getElementById("th-period-prod");
     if (th) th.textContent = pn + "产量(吨)";
-    renderProdBar(data.mine_details, pn);
+    renderProdBar(data.mine_details, pn, data.period);
     renderSalesBar(data.mine_details);
     renderProdPie(data.mine_details, pn);
     renderSalesPie(data.mine_details);
