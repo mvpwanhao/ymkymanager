@@ -499,7 +499,7 @@ def build_viz_data(
         {"label": "年累计自产煤销量", "value": round(year_sales, 2), "unit": "吨"},
         {"label": "掺配煤年累计", "value": round(blended, 2), "unit": "吨"},
         {"label": "外购煤年累计", "value": round(purchased, 2), "unit": "吨"},
-        {"label": "合计销售煤量(K=H+I)", "value": round(total_sales_k, 2), "unit": "吨"},
+        {"label": "合计销售煤量", "value": round(total_sales_k, 2), "unit": "吨"},
         {"label": "今日报能源局产量", "value": round(tot_energy_prod, 2), "unit": "吨"},
         {"label": "今日报能源局销量", "value": round(tot_energy_sales, 2), "unit": "吨"},
     ]

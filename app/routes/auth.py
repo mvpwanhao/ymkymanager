@@ -13,11 +13,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from app.auth import (
     check_role_password,
     create_login_token,
-    debug_prefill_for_role,
     get_login_by_token,
     has_configured_passwords,
     revoke_token,
-    should_debug_prefill,
 )
 from app.helpers import nav_and_page
 from app.storage import storage_uses_database
@@ -61,9 +59,6 @@ def login_get(request: Request) -> Any:
                 "message": "系统尚未设置任何登录密码，请联系管理员处理。",
             },
         )
-    prefill = ""
-    if should_debug_prefill() and request.session.get("login_temp_role"):
-        prefill = debug_prefill_for_role(str(request.session["login_temp_role"]))
     le = request.session.pop("login_error", None)
     return templates.TemplateResponse(
         request,
@@ -71,7 +66,6 @@ def login_get(request: Request) -> Any:
         {
             "step": "identity" if not request.session.get("login_temp_role") else "password",
             "temp_role": request.session.get("login_temp_role"),
-            "debug_prefill": prefill,
             "login_error": le,
         },
     )

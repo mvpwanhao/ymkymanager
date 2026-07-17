@@ -1523,6 +1523,137 @@ select#themeSelect::-ms-expand { display: none; }
   letter-spacing: 0.06em;
 }
 
+/* UI polish: cleaner surfaces, stronger hierarchy, restrained accents */
+
+.card {
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-2);
+  transition: box-shadow var(--t-base) ease, transform var(--t-base) ease;
+}
+.card:hover { box-shadow: var(--shadow-3); }
+
+.card > h1:first-child {
+  font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--c-border);
+}
+.card > h1:first-child + .muted { margin-top: -0.4rem; margin-bottom: 0.9rem; }
+
+/* KPI cards: subtle top accent, clearer label/value separation */
+.kpi-card {
+  position: relative;
+  padding: 1rem 1.05rem 0.95rem;
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, var(--c-surface) 0%, var(--c-card) 100%);
+  border-top: 3px solid var(--c-brand-500);
+  transition: transform var(--t-fast) ease, box-shadow var(--t-fast) ease;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.kpi-card .kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--c-muted);
+  font-weight: 500;
+  margin-bottom: 0.45rem;
+}
+.kpi-card .kpi-label::before {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--c-brand-500);
+  opacity: 0.65;
+}
+.kpi-card .kpi-value {
+  font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+  font-weight: 700;
+  color: var(--c-text);
+  letter-spacing: -0.01em;
+}
+.kpi-card .kpi-unit {
+  font-size: 0.65em;
+  color: var(--c-muted);
+  font-weight: 500;
+}
+
+/* Chart panels: contained, layered surfaces */
+.chart-panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: 0.85rem 1rem 0.75rem;
+  margin-bottom: 1.15rem;
+  box-shadow: var(--shadow-1);
+}
+.chart-panel:last-child { margin-bottom: 0; }
+.chart-panel h3 {
+  margin: 0 0 0.6rem 0;
+  font-size: var(--tx-15);
+  font-weight: 600;
+  color: var(--c-text-soft);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.chart-panel h3 .muted { font-weight: 400; }
+
+/* Tables: more readable headers and alternating rows */
+.data-table thead th {
+  background: var(--c-bg-soft);
+  color: var(--c-text-soft);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  border-bottom: 2px solid var(--c-border-strong);
+  padding: 0.6rem 0.85rem;
+}
+.data-table tbody tr:nth-child(even) { background: rgba(0, 98, 168, 0.025); }
+[data-color-mode="dark"] .data-table tbody tr:nth-child(even) { background: rgba(74, 159, 230, 0.06); }
+.data-table tbody tr:hover { background: rgba(0, 98, 168, 0.07); }
+.data-table td, .data-table th { padding: 0.6rem 0.85rem; }
+
+/* Buttons: refined primary, subtle shadow */
+.btn-primary {
+  background: linear-gradient(180deg, var(--c-brand-600) 0%, var(--c-brand-700) 100%);
+  border-color: var(--c-brand-800);
+  box-shadow: var(--shadow-1), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--c-brand-700) 0%, var(--c-brand-800) 100%);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--c-brand-50);
+  border-color: var(--c-brand-500);
+  color: var(--c-brand-700);
+}
+
+/* Form focus: crisper, brand-only glow */
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 3px rgba(0, 98, 168, 0.16);
+}
+
+/* Dashboard toolbar */
+.viz-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: var(--c-bg-soft);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 1rem;
+}
+.viz-toolbar .pill-tabs { margin-bottom: 0; }
+
+/* Reduce visual noise on secondary text */
+.muted { line-height: 1.5; }
+
 /* Print */
 @media print {
   .topbar, .sidebar, .btn, .pill-tabs, form .btn-row { display: none !important; }
