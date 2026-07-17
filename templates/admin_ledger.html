@@ -13,6 +13,7 @@
     <div class="pill-tabs" role="tablist">
       <a href="/go/admin_ledger?t=actual{% for m in selected_mines %}&mine={{ m }}{% endfor %}" {% if form_type == 'actual' %}aria-current="page"{% endif %}>实际产量</a>
       <a href="/go/admin_ledger?t=nybb{% for m in selected_mines %}&mine={{ m }}{% endfor %}"   {% if form_type == 'nybb'   %}aria-current="page"{% endif %}>能源局产销量</a>
+      <a href="/go/admin_ledger?t=sales{% for m in selected_mines %}&mine={{ m }}{% endfor %}"  {% if form_type == 'sales'  %}aria-current="page"{% endif %}>实际销量</a>
     </div>
     <span class="muted">共 {{ nrows }} 行{% if not readonly %} · 直接编辑单元格，勾选「删」可移除该行，最后点「保存修改」生效{% endif %}</span>
   </div>
@@ -99,7 +100,10 @@
         <tbody>
           {% for i in range(nrows) %}
           <tr>
-            <td><input type="checkbox" name="del_{{ i }}" value="1" aria-label="删除第 {{ i+1 }} 行" /></td>
+            <td>
+              <input type="hidden" name="orig_idx_{{ i }}" value="{{ ledger_orig_indices[i] }}" />
+              <input type="checkbox" name="del_{{ i }}" value="1" aria-label="删除第 {{ i+1 }} 行" />
+            </td>
             {% for j in range(ledger_cols|length) %}
             <td>
               <input type="text" name="c_{{ i }}_{{ j }}" value="{{ ledger_rows[i][j] }}" />

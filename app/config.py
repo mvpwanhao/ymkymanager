@@ -113,6 +113,14 @@ class Settings(BaseSettings):
         return str(self.data_dir / "nybb.xlsx")
 
     @property
+    def weeksheet_template(self) -> str:
+        return str(self.data_dir / "weeksheet.xlsx")
+
+    @property
+    def actual_sales_path(self) -> str:
+        return str(self.data_dir / "actual_sales.xlsx")
+
+    @property
     def app_passwords_json(self) -> str:
         return str(self.runtime_dir / "app_passwords.json")
 

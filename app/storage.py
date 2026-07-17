@@ -24,6 +24,7 @@ _PENDING_SYNC = False
 FILE_TABLE_MAP = {
     "actual_production.xlsx": "actual_production",
     "energy_reporting.xlsx": "energy_reporting",
+    "actual_sales.xlsx": "actual_sales",
 }
 
 # 两表列顺序与旧 Streamlit / PG 写库习惯一致
@@ -49,6 +50,21 @@ ENERGY_REPORTING_WRITE_ORDER: tuple[str, ...] = (
 # energy 读入时可能多「提交时间」列；新写入行不含该列
 ENERGY_REPORTING_READ_EXTRA: tuple[str, ...] = ("提交时间",)
 
+# 实际销量台账（周频填报）
+ACTUAL_SALES_WRITE_ORDER: tuple[str, ...] = (
+    "填报时间",
+    "所属煤矿",
+    "周起始日期",
+    "周结束日期",
+    "销量(吨)",
+    "月累计自产煤销量(吨)",
+    "年累计自产煤销量(吨)",
+    "年累计掺配煤销量(吨)",
+    "年累计外购煤量(吨)",
+    "填报人",
+    "备注",
+)
+
 
 def reorder_ledger_dataframe_for_table(table_name: str, df: pd.DataFrame) -> pd.DataFrame:
     """统一列顺序：与老项目 to_excel / to_sql 习惯一致，避免 SELECT * 与 Excel 导出的列序不一致。"""
@@ -60,6 +76,9 @@ def reorder_ledger_dataframe_for_table(table_name: str, df: pd.DataFrame) -> pd.
     elif table_name == "energy_reporting":
         first = [c for c in ENERGY_REPORTING_WRITE_ORDER if c in df.columns]
         extra = [c for c in ENERGY_REPORTING_READ_EXTRA if c in df.columns and c not in first]
+    elif table_name == "actual_sales":
+        first = [c for c in ACTUAL_SALES_WRITE_ORDER if c in df.columns]
+        extra = []
     else:
         return df
     rest = [c for c in df.columns if c not in first + extra]
@@ -115,6 +134,41 @@ def dataframe_energy_reporting_new_row(
             }
         ],
         columns=list(ENERGY_REPORTING_WRITE_ORDER),
+    )
+
+
+def dataframe_actual_sales_new_row(
+    *,
+    submit_time: str,
+    mine: str,
+    week_start: str,
+    week_end: str,
+    sales_t: float,
+    reporter: str,
+    note: str,
+    month_cumul: float = 0.0,
+    year_cumul: float = 0.0,
+    year_blended: float = 0.0,
+    year_purchased: float = 0.0,
+) -> pd.DataFrame:
+    """构造一行实际销量台账（周频填报）。"""
+    return pd.DataFrame(
+        [
+            {
+                "填报时间": submit_time,
+                "所属煤矿": mine,
+                "周起始日期": week_start,
+                "周结束日期": week_end,
+                "销量(吨)": sales_t,
+                "月累计自产煤销量(吨)": month_cumul,
+                "年累计自产煤销量(吨)": year_cumul,
+                "年累计掺配煤销量(吨)": year_blended,
+                "年累计外购煤量(吨)": year_purchased,
+                "填报人": reporter,
+                "备注": note,
+            }
+        ],
+        columns=list(ACTUAL_SALES_WRITE_ORDER),
     )
 
 
@@ -179,7 +233,7 @@ def _normalize_ledger_time_columns(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     out = df.copy()
-    for col in ("提交时间", "报送时间"):
+    for col in ("提交时间", "报送时间", "填报时间"):
         if col not in out.columns:
             continue
 
@@ -236,6 +290,8 @@ def _sync_key_cols(table_name: str) -> list[str]:
     """用于同步比对的联合键列。"""
     if table_name == "actual_production":
         return ["所属煤矿", "生产日期", "提交时间"]
+    if table_name == "actual_sales":
+        return ["所属煤矿", "周起始日期", "周结束日期"]
     return ["所属煤矿", "生产日期", "报送时间"]
 
 
@@ -251,6 +307,7 @@ def _try_sync_pending(engine: Engine) -> None:
     for xlsx_path, table_name in [
         (s.actual_production_path, "actual_production"),
         (s.energy_reporting_path, "energy_reporting"),
+        (s.actual_sales_path, "actual_sales"),
     ]:
         if not os.path.exists(xlsx_path):
             continue
@@ -457,6 +514,86 @@ def replace_records_for_mine_date(
     removed = 0
     if not df.empty:
         mask = _mask_mine_date(df, mine, prod_date_iso)
+        removed = int(mask.sum())
+        df = df.loc[~mask].copy()
+    df_new = _normalize_ledger_time_columns(df_new)
+    table_name = _table_name(file_path)
+    if table_name:
+        df_new = reorder_ledger_dataframe_for_table(table_name, df_new)
+        if not df.empty:
+            df = reorder_ledger_dataframe_for_table(table_name, df)
+    df_final = pd.concat([df, df_new], ignore_index=True) if not df.empty else df_new
+    overwrite_records(file_path, df_final)
+    return removed
+
+
+# ── 实际销量台账：按矿 + 周区间查重 / 覆写 ──────────────────────────
+
+def _mask_mine_week(
+    df: pd.DataFrame, mine: str, week_start_iso: str, week_end_iso: str
+) -> pd.Series:
+    """构造「所属煤矿 == mine 且 周起始日期 == week_start 且 周结束日期 == week_end」的布尔 mask。"""
+    if (
+        df.empty
+        or "所属煤矿" not in df.columns
+        or "周起始日期" not in df.columns
+        or "周结束日期" not in df.columns
+    ):
+        return pd.Series([False] * len(df), index=df.index)
+    ws = pd.to_datetime(week_start_iso, errors="coerce")
+    we = pd.to_datetime(week_end_iso, errors="coerce")
+    if pd.isna(ws) or pd.isna(we):
+        return pd.Series([False] * len(df), index=df.index)
+    ws_d = ws.date()
+    we_d = we.date()
+    dates_s = pd.to_datetime(df["周起始日期"], errors="coerce").dt.date
+    dates_e = pd.to_datetime(df["周结束日期"], errors="coerce").dt.date
+    return (
+        (df["所属煤矿"].astype(str).str.strip() == str(mine).strip())
+        & (dates_s == ws_d)
+        & (dates_e == we_d)
+    )
+
+
+def find_sales_records_by_mine_week(
+    file_path: str, mine: str, week_start_iso: str, week_end_iso: str
+) -> pd.DataFrame:
+    """查找指定煤矿 + 周区间的已有销量台账行（用于「重复填报检测」）。"""
+    df = read_records(file_path)
+    if df.empty:
+        return df
+    mask = _mask_mine_week(df, mine, week_start_iso, week_end_iso)
+    return df.loc[mask].copy()
+
+
+def verify_sales_submission_visible(
+    file_path: str, mine: str, week_start_iso: str, week_end_iso: str, sales_t: float
+) -> bool:
+    """提交后读回：同一煤矿·同一周区间下是否存在与本次销量一致（容差吨）的记录。"""
+    df = find_sales_records_by_mine_week(file_path, mine, week_start_iso, week_end_iso)
+    if df.empty or "销量(吨)" not in df.columns:
+        return False
+    nums = pd.to_numeric(df["销量(吨)"], errors="coerce")
+    for v in nums:
+        if pd.isna(v):
+            continue
+        if _numeric_close(float(v), sales_t):
+            return True
+    return False
+
+
+def replace_sales_records_for_mine_week(
+    file_path: str,
+    mine: str,
+    week_start_iso: str,
+    week_end_iso: str,
+    df_new: pd.DataFrame,
+) -> int:
+    """删除指定煤矿 + 周区间的所有旧行后写入 df_new（覆盖式纠错）。返回被删除的旧行数。"""
+    df = read_records(file_path)
+    removed = 0
+    if not df.empty:
+        mask = _mask_mine_week(df, mine, week_start_iso, week_end_iso)
         removed = int(mask.sum())
         df = df.loc[~mask].copy()
     df_new = _normalize_ledger_time_columns(df_new)

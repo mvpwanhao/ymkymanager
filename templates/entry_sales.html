@@ -1,0 +1,76 @@
+{#
+  Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+  本文件为「云煤矿业产销量管理系统」的组成部分。
+  仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
+  未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
+#}
+{% extends "base.html" %}
+{% block title %}实际销量填报 · 产销量管理系统{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>实际销量填报</h1>
+  <p class="muted">选择周末日期（周五），系统自动计算所属周区间。每周每矿填一次。</p>
+  <form method="post" action="/entry/sales/submit" class="form-grid cols-2" data-loading>
+    <div>
+      <label for="mine">煤矿名称</label>
+      <select id="mine" name="mine" required>
+        <option value="">— 请选择 —</option>
+        {% for m in mines %}
+        <option value="{{ m }}">{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="week_end">周末日期（周五）</label>
+      <input type="date" id="week_end" name="week_end" value="{{ default_week_end }}" required />
+      <small class="muted" data-week-range style="display:block;margin-top:0.25rem;">
+        本周区间：{{ default_week_start }} 至 {{ default_week_end }}
+      </small>
+    </div>
+    <div>
+      <label for="sales">本周销量（吨）</label>
+      <input type="number" id="sales" name="sales" min="0" step="0.01" value="0" inputmode="decimal" required />
+    </div>
+    <div>
+      <label for="reporter">填报人</label>
+      <input type="text" id="reporter" name="reporter" value="管理员" autocomplete="off" />
+      <small class="muted" style="display:block;margin-top:0.25rem;">默认为「管理员」，可修改。</small>
+    </div>
+    <div>
+      <label for="year_blended">年累计掺配煤销量（吨）</label>
+      <input type="number" id="year_blended" name="year_blended" min="0" step="0.01" value="0" inputmode="decimal" />
+      <small class="muted" style="display:block;margin-top:0.25rem;">截至本周的年度累计掺配煤销量。</small>
+    </div>
+    <div>
+      <label for="year_purchased">年累计外购煤量（吨）</label>
+      <input type="number" id="year_purchased" name="year_purchased" min="0" step="0.01" value="0" inputmode="decimal" />
+      <small class="muted" style="display:block;margin-top:0.25rem;">截至本周的年度累计外购煤量。</small>
+    </div>
+    <div class="full-row">
+      <label for="note">备注</label>
+      <textarea id="note" name="note" rows="3" placeholder="销量为 0 时须说明原因"></textarea>
+    </div>
+    <div class="btn-row full-row">
+      <button type="submit" name="action" value="submit" class="btn btn-primary">提交数据</button>
+    </div>
+  </form>
+</div>
+<script>
+(function(){
+  var weekEndInput = document.getElementById("week_end");
+  var rangeDisplay = document.querySelector("[data-week-range]");
+  function updateRange(){
+    if (!weekEndInput || !rangeDisplay) return;
+    var val = weekEndInput.value;
+    if (!val) { rangeDisplay.textContent = "请选择周末日期"; return; }
+    var d = new Date(val + "T00:00:00");
+    d.setDate(d.getDate() - 6);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    rangeDisplay.textContent = "本周区间：" + y + "-" + m + "-" + day + " 至 " + val + "（最终以系统计算为准）";
+  }
+  if (weekEndInput) weekEndInput.addEventListener("change", updateRange);
+})();
+</script>
+{% endblock %}

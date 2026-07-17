@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -54,6 +54,45 @@ def get_26day_year_range(anchor_dt: date) -> tuple[date, date]:
     if (anchor_dt.month, anchor_dt.day) >= (12, 26):
         return date(anchor_dt.year, 12, 26), date(anchor_dt.year + 1, 12, 25)
     return date(anchor_dt.year - 1, 12, 26), date(anchor_dt.year, 12, 25)
+
+
+def _next_friday(d: date) -> date:
+    """返回 >= d 的最近一个周五（含 d 本身）。"""
+    days_ahead = 4 - d.weekday()  # Friday == 4
+    if days_ahead < 0:
+        days_ahead += 7
+    return d + timedelta(days=days_ahead)
+
+
+def enumerate_weekly_ranges(month_start: date, month_end: date) -> list[tuple[date, date]]:
+    """枚举一个 26 日制统计月内的所有周区间（含两端）。
+
+    规则：
+    - 首周从 month_start（26 日）开始，到最近的周五结束（不论有几天）；
+    - 中间各周为周六至周五（7 天）；
+    - 末周从上周六开始，到 month_end（25 日）结束（不论有几天）；
+    - 若某周五超过 month_end，则截断为 month_end。
+    """
+    ranges: list[tuple[date, date]] = []
+    current = month_start
+    while current <= month_end:
+        friday = _next_friday(current)
+        week_end = min(friday, month_end)
+        ranges.append((current, week_end))
+        current = week_end + timedelta(days=1)
+    return ranges
+
+
+def get_weekly_range(anchor_dt: date) -> tuple[date, date]:
+    """返回 anchor_dt 所属的周区间 (start, end)。
+
+    先定位 26 日制统计月，再枚举该月所有周区间并匹配。
+    """
+    month_start, month_end = get_26day_month_range(anchor_dt)
+    for start, end in enumerate_weekly_ranges(month_start, month_end):
+        if start <= anchor_dt <= end:
+            return start, end
+    return month_start, month_end
 
 
 def get_26day_statistical_month_label(d: object) -> str:

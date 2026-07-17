@@ -25,6 +25,7 @@ natfrp/
 # 业务原始数据（应用首次启动会自动创建空表，不需要随仓库分发）
 data/actual_production.xlsx
 data/energy_reporting.xlsx
+data/actual_sales.xlsx
 
 # 导出报表（运行时由系统生成）
 data/exports/
@@ -90,6 +91,9 @@ ehthumbs.db
 # ── 8. Jupyter / 临时脚本 ──────────────────────────────────────────────────
 .ipynb_checkpoints/
 _tmp_*.py
+_debug_*
+_test_*
+_verify_*
 *.bak
 
 

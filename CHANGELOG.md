@@ -4,6 +4,45 @@
 
 **约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
 
+## [1.4.0] - 2026-07-17
+
+### 新增
+
+- **实际销量台账模块（周频填报）**：管理员可按周填报各矿实际销量，数据模型 11 列（填报时间、煤矿、周区间、销量、月/年累计自产煤销量、年累计掺配煤/外购煤、填报人、备注）；提交时按「煤矿 + 周区间」查重，重复填报可选择追加或覆盖。
+  - `app/storage.py`：新增 `actual_sales` 表支持（`FILE_TABLE_MAP`、`ACTUAL_SALES_WRITE_ORDER`、`dataframe_actual_sales_new_row`、`find_sales_records_by_mine_week`、`replace_sales_records_for_mine_week` 等）。
+  - `app/config.py`：新增 `actual_sales_path` 和 `weeksheet_template` 属性。
+  - `app/timeutil.py`：新增 `get_weekly_range` / `enumerate_weekly_ranges` 周区间计算函数（26 日制统计月内：首周从 26 日起到首个周五，中间各周周六至周五，末周到 25 日）。
+  - `templates/entry_sales.html`：销量填报页面。
+  - `templates/_icons.html`：新增 `entry_sales` 图标。
+  - `templates/admin_ledger.html`：新增「实际销量」Tab，支持在线编辑销量台账。
+- **周报表生成**（`POST /reports/weekly`）：按周区间汇总各矿原煤生产量与自产煤销售量，生成吨表和万吨表两个 Sheet；复用 `weeksheet.xlsx` 模板。
+- **产销量简报**（`POST /reports/brief`）：生成文本格式简报，可直接复制粘贴到微信群；含日产量、月/年累计、掺配煤/外购煤年累计、合计销售煤量（K=H+I）。
+- **产销量数据可视化模块**（ECharts 客户端渲染）：
+  - `app/viz_engine.py`：可视化统计引擎，完整复用报表/简报统计逻辑（G/H 混合累计、I/J 合计记录回退、K=H+I）。
+  - `templates/dashboard.html`：重写为 ECharts 渲染，合并旧 Plotly 可视化与新 ECharts 分析模块。
+  - 年度 / 月度 / 自定义三种时间段 AJAX 切换（无需页面刷新），统计结果与报表/简报完全对齐。
+  - 9 个 KPI 卡片（期间产量/销量、月/年累计自产煤、掺配煤/外购煤年累计、K 值、今日报能源局产量/销量）。
+  - 10 列矿明细表（含能源局产量/销量列）。
+  - 6 个图表：各矿产量/销量对比柱状图、产量/销量占比饼图、日产量/周销量趋势折线图。
+  - Tooltip 明暗主题自动适配；趋势折线图支持勾选显示合计与各矿数据线。
+  - Excel 导出（3 个 Sheet：各矿产销量明细、日产量明细、周销量明细）。
+- **销量数据导入脚本** `scripts/import_sales_to_db.py`：将本地 `actual_sales.xlsx` 导入部署环境 PostgreSQL；支持 `replace`（整表覆写）和 `upsert`（按煤矿+周区间去重合并）两种模式，`--dry-run` 预览；脚本不含业务数据，可安全纳入版本控制。
+
+### 修复
+
+- **简报年累计掺配煤/外购煤显示为 0**：按精确周结束日期匹配「合计」记录时，目标周无数据导致取不到值。新增 `effective_week_end` 回退逻辑——目标周无数据时取最近一期 `周结束日期 ≤ 目标周末` 的记录。
+- **G/H 时间累计丢失补录历史数据**：纯时间累计（求和 F）在补录数据 F=0 时导致 G/H 累计值丢失。改为混合逻辑：以补录存储的 G/H 为基数，加上该基数记录之后的新增 F 值；无存储值时按时间累计。
+
+### 变更
+
+- **I/J 填报保持逻辑**：年累计掺配煤（I）/外购煤（J）填 0 或留空时，自动沿用最近一期「合计」记录的值（保持不变）；非 0 时覆盖。每次提交销量数据后自动同步更新/创建当前周的「合计」记录（含 I/J 值），使用 `FileLock` 确保读写原子性。
+- **数据可视化合并**：删除旧 `templates/visualization.html`，统一以 `dashboard.html` 为入口；`app/main.py` 移除 `build_summary_and_charts` / `try_visual_export_bytes` 等旧 Plotly 导入。
+
+### 工程与部署
+
+- **`.gitignore` 修复**：新增 `data/actual_sales.xlsx` 排除规则（原先只排除了 `actual_production.xlsx` 和 `energy_reporting.xlsx`，存在业务数据误推送风险）。
+- **`data/weeksheet.xlsx`**：新增周报表模板（吨表+万吨表两个 Sheet），作为项目组成部分纳入版本控制。
+
 ## [1.3.1] - 2026-06-09
 
 ### 新增

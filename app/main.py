@@ -39,29 +39,36 @@ from app.auth import (
 from app.config import get_settings
 from app.middleware_production import SecurityHeadersMiddleware, StaticCacheMiddleware
 from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP, MINE_LIST
-from app.dashboard_data import build_summary_and_charts, exclude_mines
-from app.visual_export import content_disposition_attachment, try_visual_export_bytes
+from app.dashboard_data import exclude_mines
+from app.visual_export import content_disposition_attachment
 from app.release_version import health_version
 from app.report_engine import (
+    generate_brief_report,
     generate_nybb_report,
     generate_sjcl_report,
+    generate_weekly_report,
     read_sjcl_v2_daily_plans_from_template,
 )
+from app.viz_engine import build_viz_data, export_viz_excel
 from app.services.notify import notify_alert
 from app.storage import (
     append_records,
     dataframe_actual_production_new_row,
+    dataframe_actual_sales_new_row,
     dataframe_energy_reporting_new_row,
     find_records_by_mine_date,
+    find_sales_records_by_mine_week,
     has_pending_sync,
     overwrite_records,
     read_records,
     replace_records_for_mine_date,
+    replace_sales_records_for_mine_week,
     storage_uses_database,
     verify_actual_submission_visible,
     verify_energy_submission_visible,
+    verify_sales_submission_visible,
 )
-from app.timeutil import format_series_as_beijing_display, now_str, today_beijing
+from app.timeutil import format_series_as_beijing_display, get_weekly_range, now_str, today_beijing
 
 
 def _df_to_html_table(df: pd.DataFrame) -> str:
@@ -166,6 +173,7 @@ def _nav_and_page(role: str, reporter_kind: str | None, session: dict) -> tuple[
             {"id": "admin_ledger", "label": "历史台账", "path": "/go/admin_ledger", "group": "数据查看"},
             {"id": "entry_actual", "label": "实际产量填报", "path": "/go/entry_actual", "group": "填报"},
             {"id": "entry_energy", "label": "能源局产销量填报", "path": "/go/entry_energy", "group": "填报"},
+            {"id": "entry_sales", "label": "实际销量填报", "path": "/go/entry_sales", "group": "填报"},
             {"id": "reports", "label": "生成报表", "path": "/go/reports", "group": "系统"},
             {"id": "passwords", "label": "密码管理", "path": "/go/passwords", "group": "系统"},
             {"id": "logs", "label": "系统日志", "path": "/go/logs", "group": "系统"},
@@ -254,6 +262,15 @@ def create_app() -> FastAPI:
         with lock:
             return replace_records_for_mine_date(file_path, mine, prod_date_iso, df_new)
 
+    def _safe_replace_sales(
+        file_path: str, mine: str, week_start_iso: str, week_end_iso: str, df_new: pd.DataFrame
+    ) -> int:
+        lock = FileLock(file_path + ".lock")
+        with lock:
+            return replace_sales_records_for_mine_week(
+                file_path, mine, week_start_iso, week_end_iso, df_new
+            )
+
     def _render_duplicate_confirmation(
         request: Request,
         *,
@@ -265,14 +282,18 @@ def create_app() -> FastAPI:
         form_fields: dict[str, str],
     ) -> Any:
         ex = existing_df.copy()
-        for c in ("提交时间", "报送时间"):
+        for c in ("提交时间", "报送时间", "填报时间"):
             if c in ex.columns:
                 ex[c] = format_series_as_beijing_display(ex[c])
-        kind_label = "实际产量" if kind == "actual" else "能源局产销量"
-        submit_path = "/entry/actual/submit" if kind == "actual" else "/entry/energy/submit"
+        kind_label = {"actual": "实际产量", "energy": "能源局产销量", "sales": "实际销量"}.get(kind, kind)
+        submit_path = {
+            "actual": "/entry/actual/submit",
+            "energy": "/entry/energy/submit",
+            "sales": "/entry/sales/submit",
+        }.get(kind, "/entry/actual/submit")
         role_str = str(request.session.get("role") or "")
         nav, _session_page = _nav_and_page(role_str, request.session.get("reporter_kind"), request.session)
-        page_here = "entry_actual" if kind == "actual" else "entry_energy"
+        page_here = {"actual": "entry_actual", "energy": "entry_energy", "sales": "entry_sales"}.get(kind, kind)
         return templates.TemplateResponse(
             request,
             "entry_duplicate.html",
@@ -452,18 +473,46 @@ def create_app() -> FastAPI:
             headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )
 
-    @app.get("/export/visual-production.xlsx")
-    def export_visual_production(request: Request) -> Any:
+    @app.get("/export/viz-data.xlsx")
+    def export_viz_data(
+        request: Request,
+        period: str = "year",
+        start: str = "",
+        end: str = "",
+        stat_year: str = "",
+        stat_month: str = "",
+    ) -> Any:
         role = request.session.get("role")
         if role not in ("管理员", "产量数据可视化"):
             return RedirectResponse("/login", status_code=303)
-        blob, ascii_n, utf_n, err = try_visual_export_bytes(request)
-        if err or not blob:
-            msg = err or "导出失败。"
-            # 带 download 的请求若仅以 URL 存盘，会为 .xlsx 名塞入正文或 HTML→Excel 报「格式无效」；附 .txt 的 Content-Disposition 降低误保存。
-            request.session["flash"] = msg
-            logging.getLogger(__name__).warning("visual.export.failed role=%s err=%s", role, msg)
-            err_ascii = "ymky_visual_export_error.txt"
+        today_cap = today_beijing()
+        c_start = c_end = None
+        if period == "custom" and start and end:
+            try:
+                c_start = date.fromisoformat(start)
+                c_end = date.fromisoformat(end)
+                if c_start > today_cap:
+                    c_start = today_cap
+                if c_end > today_cap:
+                    c_end = today_cap
+                if c_start > c_end:
+                    c_start, c_end = c_end, c_start
+            except ValueError:
+                period = "year"
+        sy_int = int(stat_year) if stat_year.isdigit() else None
+        sm_str = stat_month if re.fullmatch(r"\d{4}-\d{2}", stat_month) else None
+        try:
+            blob, ascii_n, utf_n = export_viz_excel(
+                period=period,
+                custom_start=c_start,
+                custom_end=c_end,
+                stat_year=sy_int,
+                stat_month=sm_str,
+            )
+        except Exception as exc:
+            msg = str(exc)
+            logging.getLogger(__name__).warning("viz.export.failed role=%s err=%s", role, msg)
+            err_ascii = "ymky_viz_export_error.txt"
             disp_err = (
                 f'attachment; filename="{err_ascii}"; '
                 f"filename*=UTF-8''{quote('云煤矿业_导出失败说明.txt')}"
@@ -486,11 +535,8 @@ def create_app() -> FastAPI:
     @app.get("/go/{section}")
     def go(request: Request, section: str) -> RedirectResponse:
         request.session["active_section"] = section
-        p = request.query_params.get("period")
         t = request.query_params.get("t", "")
-        if section == "visual" and p:
-            return RedirectResponse(f"/?period={p}", status_code=303)
-        if section == "admin_ledger" and t in ("actual", "nybb"):
+        if section == "admin_ledger" and t in ("actual", "nybb", "sales"):
             request.session["ledger_t"] = t
             mines = [m.strip() for m in request.query_params.getlist("mine") if m.strip()]
             if mines:
@@ -506,9 +552,6 @@ def create_app() -> FastAPI:
         role = request.session.get("role")
         if not role:
             return RedirectResponse("/login", status_code=303)
-        p_q = request.query_params.get("period")
-        if p_q in ("year", "month", "custom") and role in ("管理员", "产量数据可视化"):
-            request.session["active_section"] = "visual"
         act_path, en_path = get_paths()
         nav, page = _nav_and_page(
             str(role), request.session.get("reporter_kind"), request.session
@@ -530,49 +573,12 @@ def create_app() -> FastAPI:
             "energy_reporter_map": ENERGY_REPORTER_MAP,
         }
         if page == "visual":
-            period = request.query_params.get("period", "year")
-            ds = request.query_params.get("start")
-            de = request.query_params.get("end")
             today_cap = today_beijing()
-            c_start = c_end = None
-            tpl_start = (ds or "").strip()
-            tpl_end = (de or "").strip()
-            if period == "custom" and tpl_start and tpl_end:
-                try:
-                    c_start = date.fromisoformat(str(tpl_start))
-                    c_end = date.fromisoformat(str(tpl_end))
-                    if c_start > today_cap:
-                        c_start = today_cap
-                    if c_end > today_cap:
-                        c_end = today_cap
-                    if c_start > c_end:
-                        c_start, c_end = c_end, c_start
-                    tpl_start = c_start.isoformat()
-                    tpl_end = c_end.isoformat()
-                except ValueError:
-                    period = "year"
-            sy_raw = (request.query_params.get("stat_year") or "").strip()
-            sm_raw = (request.query_params.get("stat_month") or "").strip()
-            stat_year_int: int | None = int(sy_raw) if sy_raw.isdigit() else None
-            stat_month_str: str | None = (
-                sm_raw if re.fullmatch(r"\d{4}-\d{2}", sm_raw) else None
-            )
-            d = build_summary_and_charts(
-                period=period,
-                custom_start=c_start,
-                custom_end=c_end,
-                stat_year=stat_year_int,
-                stat_month=stat_month_str,
-            )
             return templates.TemplateResponse(
                 request,
                 "dashboard.html",
                 {
                     **ctx,
-                    "dash": d,
-                    "period": period,
-                    "c_start": tpl_start,
-                    "c_end": tpl_end,
                     "visual_custom_max_date": today_cap.isoformat(),
                 },
             )
@@ -587,6 +593,20 @@ def create_app() -> FastAPI:
                 request,
                 "entry_energy.html",
                 {**ctx, "mines": MINE_LIST, "yesterday": (today_beijing() - timedelta(days=1))},
+            )
+        if page == "entry_sales":
+            today = today_beijing()
+            wk_start, wk_end = get_weekly_range(today)
+            return templates.TemplateResponse(
+                request,
+                "entry_sales.html",
+                {
+                    **ctx,
+                    "mines": MINE_LIST,
+                    "today_iso": today.isoformat(),
+                    "default_week_end": wk_end.isoformat(),
+                    "default_week_start": wk_start.isoformat(),
+                },
             )
         if page == "history":
             is_actual = (role == "填报人员" and (request.session.get("reporter_kind") or "") == "实际产量填报")
@@ -621,15 +641,21 @@ def create_app() -> FastAPI:
             )
         if page == "admin_ledger":
             ft = request.query_params.get("t") or request.session.get("ledger_t") or "actual"
-            if ft not in ("actual", "nybb"):
+            if ft not in ("actual", "nybb", "sales"):
                 ft = "actual"
             selected_mines = [m.strip() for m in request.query_params.getlist("mine") if m.strip()]
-            p = act_path if ft == "actual" else en_path
+            s = get_settings()
+            if ft == "actual":
+                p = act_path
+            elif ft == "sales":
+                p = s.actual_sales_path
+            else:
+                p = en_path
             df = exclude_mines(read_records(p))
 
             today_str = today_beijing().isoformat()
             mine_status: list[dict[str, object]] = []
-            time_col_key = "提交时间" if ft == "actual" else "报送时间"
+            time_col_key = "提交时间" if ft == "actual" else ("报送时间" if ft == "nybb" else "填报时间")
             for mine_name in MINE_LIST:
                 submitted = False
                 if not df.empty and "所属煤矿" in df.columns and time_col_key in df.columns:
@@ -639,8 +665,8 @@ def create_app() -> FastAPI:
 
             if not df.empty:
                 if time_col_key in df.columns:
-                    df = df.sort_values(time_col_key, ascending=False, na_position="last").reset_index(drop=True)
-                for c in ("提交时间", "报送时间"):
+                    df = df.sort_values(time_col_key, ascending=False, na_position="last")
+                for c in ("提交时间", "报送时间", "填报时间"):
                     if c in df.columns:
                         df[c] = format_series_as_beijing_display(df[c])
 
@@ -680,10 +706,18 @@ def create_app() -> FastAPI:
                 },
             )
         if page == "reports":
+            today = today_beijing()
+            _, wk_end = get_weekly_range(today)
+            brief_text = request.session.pop("brief_text", None)
             return templates.TemplateResponse(
                 request,
                 "reports.html",
-                {**ctx, "default_date": (today_beijing() - timedelta(days=1))},
+                {
+                    **ctx,
+                    "default_date": (today - timedelta(days=1)),
+                    "default_week_end": wk_end.isoformat(),
+                    "brief_text": brief_text,
+                },
             )
         if page == "passwords" and role == "管理员":
             return templates.TemplateResponse(
@@ -916,14 +950,189 @@ def create_app() -> FastAPI:
             return RedirectResponse("/", status_code=303)
 
 
+    @app.post("/entry/sales/submit", response_model=None)
+    def submit_sales(
+        request: Request,
+        mine: str = Form(""),
+        week_end: str = Form(""),
+        sales: str = Form("0"),
+        reporter: str = Form(""),
+        note: str = Form(""),
+        action: str = Form("submit"),
+        confirm: str = Form(""),
+        year_blended: str = Form("0"),
+        year_purchased: str = Form("0"),
+    ) -> Any:
+        role = request.session.get("role")
+        if role != "管理员":
+            return RedirectResponse("/login", status_code=303)
+        if action == "logout":
+            return RedirectResponse("/logout", status_code=303)
+        if not mine:
+            request.session["form_error"] = "请选择煤矿"
+            return RedirectResponse("/go/entry_sales", status_code=303)
+        try:
+            we_dt = date.fromisoformat(week_end)
+        except (ValueError, TypeError):
+            request.session["form_error"] = "周末日期无效"
+            return RedirectResponse("/go/entry_sales", status_code=303)
+        ws_dt, we_dt = get_weekly_range(we_dt)
+        week_start_iso = ws_dt.strftime("%Y-%m-%d")
+        week_end_iso = we_dt.strftime("%Y-%m-%d")
+        try:
+            sales_f = float(sales)
+        except (TypeError, ValueError):
+            sales_f = 0.0
+        if sales_f == 0.0 and not str(note).strip():
+            request.session["form_error"] = "销量为 0 时须填备注"
+            return RedirectResponse("/go/entry_sales", status_code=303)
+        rep_input = (reporter or "").strip()
+        who = rep_input or "管理员"
+
+        def _parse_float(val: str) -> float:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return 0.0
+
+        sales_path = get_settings().actual_sales_path
+        blended_f = _parse_float(year_blended)
+        purchased_f = _parse_float(year_purchased)
+
+        # I/J 为 0 或空时，沿用最近一期"合计"记录的值（保持不变）
+        if blended_f == 0.0 or purchased_f == 0.0:
+            _existing_df = read_records(sales_path)
+            if not _existing_df.empty:
+                _existing_df["_we"] = pd.to_datetime(
+                    _existing_df["周结束日期"], errors="coerce"
+                ).dt.date
+                _totals = _existing_df[
+                    _existing_df["所属煤矿"].astype(str).str.strip() == "合计"
+                ]
+                if not _totals.empty:
+                    _we_date = pd.to_datetime(week_end_iso).date()
+                    _recent = _totals[_totals["_we"] <= _we_date]
+                    if not _recent.empty:
+                        _latest = _recent.sort_values("_we").iloc[-1]
+                        if blended_f == 0.0:
+                            _v = pd.to_numeric(
+                                _latest.get("年累计掺配煤销量(吨)", 0), errors="coerce"
+                            )
+                            blended_f = float(_v) if pd.notna(_v) else 0.0
+                        if purchased_f == 0.0:
+                            _v = pd.to_numeric(
+                                _latest.get("年累计外购煤量(吨)", 0), errors="coerce"
+                            )
+                            purchased_f = float(_v) if pd.notna(_v) else 0.0
+
+        new_data = dataframe_actual_sales_new_row(
+            submit_time=now_str(),
+            mine=mine,
+            week_start=week_start_iso,
+            week_end=week_end_iso,
+            sales_t=sales_f,
+            reporter=who,
+            note=note,
+            year_blended=blended_f,
+            year_purchased=purchased_f,
+        )
+
+        if confirm not in ("append", "replace"):
+            existing = find_sales_records_by_mine_week(sales_path, mine, week_start_iso, week_end_iso)
+            if not existing.empty:
+                return _render_duplicate_confirmation(
+                    request,
+                    kind="sales",
+                    mine=mine,
+                    prod_date_iso=f"{week_start_iso} 至 {week_end_iso}",
+                    existing_df=existing,
+                    pending_df=new_data,
+                    form_fields={
+                        "mine": mine,
+                        "week_end": week_end_iso,
+                        "sales": str(sales_f),
+                        "reporter": who,
+                        "note": note,
+                        "year_blended": str(blended_f),
+                        "year_purchased": str(purchased_f),
+                    },
+                )
+
+        ymky_log = logging.getLogger("ymky")
+        if confirm == "replace":
+            removed = _safe_replace_sales(sales_path, mine, week_start_iso, week_end_iso, new_data)
+            save_msg = f"已覆盖：删除旧记录 {removed} 条，写入新记录 1 条"
+        else:
+            _safe_append(new_data, sales_path)
+            save_msg = "提交成功" if confirm != "append" else "已追加（保留旧记录）"
+
+        if not verify_sales_submission_visible(sales_path, mine, week_start_iso, week_end_iso, sales_f):
+            ymky_log.error(
+                "实际销量台账写入后校验失败 path=%s mine=%s week=%s~%s sales=%s db=%s",
+                sales_path,
+                mine,
+                week_start_iso,
+                week_end_iso,
+                sales_f,
+                storage_uses_database(),
+            )
+            request.session["form_error"] = (
+                "保存后校验未通过：未能在台账中查到与本次一致的销量记录，本次可能未成功保存。"
+                "请勿以为已提交成功，请重试或联系管理员。"
+            )
+            return RedirectResponse("/go/entry_sales", status_code=303)
+
+        # 同步更新/创建"合计"记录的 I/J 值（确保简报和周报表能取到当前周累计值）
+        _totals_lock = FileLock(sales_path + ".lock")
+        with _totals_lock:
+            _df = read_records(sales_path)
+            if not _df.empty:
+                _df["_we"] = pd.to_datetime(_df["周结束日期"], errors="coerce").dt.date
+                _df["_ws"] = pd.to_datetime(_df["周起始日期"], errors="coerce").dt.date
+                _we_d = pd.to_datetime(week_end_iso).date()
+                _ws_d = pd.to_datetime(week_start_iso).date()
+                _mask = (
+                    (_df["所属煤矿"].astype(str).str.strip() == "合计")
+                    & (_df["_we"] == _we_d)
+                    & (_df["_ws"] == _ws_d)
+                )
+                if _mask.any():
+                    _df.loc[_mask, "年累计掺配煤销量(吨)"] = blended_f
+                    _df.loc[_mask, "年累计外购煤量(吨)"] = purchased_f
+                else:
+                    _totals_row = dataframe_actual_sales_new_row(
+                        submit_time=now_str(),
+                        mine="合计",
+                        week_start=week_start_iso,
+                        week_end=week_end_iso,
+                        sales_t=0.0,
+                        reporter=who,
+                        note="公司合计",
+                        year_blended=blended_f,
+                        year_purchased=purchased_f,
+                    )
+                    _df = pd.concat([_df, _totals_row], ignore_index=True)
+                _df = _df.drop(columns=["_we", "_ws"], errors="ignore")
+                overwrite_records(sales_path, _df)
+
+        request.session["flash"] = save_msg
+        return RedirectResponse("/go/entry_sales", status_code=303)
+
+
     @app.post("/admin/ledger/save")
     async def admin_ledger_save(request: Request) -> RedirectResponse:
         if request.session.get("role") != "管理员":
             return RedirectResponse("/login", status_code=303)
         form = await request.form()
         form_type = str(form.get("form_type", "actual"))
+        s = get_settings()
         act_path, en_path = get_paths()
-        p = act_path if form_type == "actual" else en_path
+        if form_type == "actual":
+            p = act_path
+        elif form_type == "sales":
+            p = s.actual_sales_path
+        else:
+            p = en_path
         raw = read_records(p)
         df_full = exclude_mines(raw) if not raw.empty else raw
         if df_full.empty:
@@ -935,12 +1144,13 @@ def create_app() -> FastAPI:
         # ── 收集表单中可见行的变更（更新/删除）────
         updated_rows: list[tuple[int, dict]] = []
         deleted_indices: set[int] = set()
+        full_index_set = set(df_full.index.tolist())
         for i in range(nrows):
             orig_idx_str = str(form.get(f"orig_idx_{i}", ""))
             if not orig_idx_str.lstrip("-").isdigit():
                 continue
             orig_idx = int(orig_idx_str)
-            if orig_idx < 0 or orig_idx >= len(df_full):
+            if orig_idx not in full_index_set:
                 continue
             if str(form.get(f"del_{i}")) == "1":
                 deleted_indices.add(orig_idx)
@@ -955,7 +1165,7 @@ def create_app() -> FastAPI:
         # ── 合并：保留未出现在表单中的行 + 更新后的行 ──
         updated_idx_set = {r[0] for r in updated_rows}
         result_rows: list[dict] = []
-        for idx in range(len(df_full)):
+        for idx in df_full.index:
             if idx in deleted_indices:
                 continue
             if idx in updated_idx_set:
@@ -964,7 +1174,7 @@ def create_app() -> FastAPI:
                         result_rows.append(row_dict)
                         break
             else:
-                result_rows.append(df_full.iloc[idx].to_dict())
+                result_rows.append(df_full.loc[idx].to_dict())
 
         if not result_rows:
             new_df = pd.DataFrame(columns=df_full.columns)
@@ -1032,6 +1242,36 @@ def create_app() -> FastAPI:
         q = urlencode({"f": os.path.basename(out)})
         return RedirectResponse(f"/reports/download?{q}", status_code=303)
 
+    @app.post("/reports/weekly", response_model=None)
+    def report_weekly(
+        request: Request,
+        target_date: str = Form(...),
+    ) -> FileResponse | RedirectResponse:
+        if request.session.get("role") != "管理员":
+            return RedirectResponse("/login", status_code=303)
+        out, msg = generate_weekly_report(target_date)
+        if not out or not os.path.isfile(out):
+            request.session["flash"] = msg or "生成失败"
+            return RedirectResponse("/go/reports", status_code=303)
+        request.session["flash"] = msg or "已生成，开始下载"
+        q = urlencode({"f": os.path.basename(out)})
+        return RedirectResponse(f"/reports/download?{q}", status_code=303)
+
+    @app.post("/reports/brief", response_model=None)
+    def report_brief(
+        request: Request,
+        target_date: str = Form(...),
+    ) -> RedirectResponse:
+        if request.session.get("role") != "管理员":
+            return RedirectResponse("/login", status_code=303)
+        brief_text, msg = generate_brief_report(target_date)
+        if not brief_text:
+            request.session["flash"] = msg or "生成失败"
+            return RedirectResponse("/go/reports", status_code=303)
+        request.session["brief_text"] = brief_text
+        request.session["flash"] = msg or "产销量简报已生成"
+        return RedirectResponse("/go/reports", status_code=303)
+
     @app.get("/reports/download", response_model=None)
     def report_download(
         request: Request,
@@ -1052,6 +1292,45 @@ def create_app() -> FastAPI:
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             filename=p.name,
         )
+
+    @app.get("/api/viz/data")
+    def viz_data(
+        request: Request,
+        period: str = "year",
+        start: str = "",
+        end: str = "",
+        stat_year: str = "",
+        stat_month: str = "",
+    ) -> JSONResponse:
+        if not request.session.get("role"):
+            return JSONResponse({"error": "未登录"}, status_code=401)
+        today_cap = today_beijing()
+        c_start = c_end = None
+        if period == "custom" and start and end:
+            try:
+                c_start = date.fromisoformat(start)
+                c_end = date.fromisoformat(end)
+                if c_start > today_cap:
+                    c_start = today_cap
+                if c_end > today_cap:
+                    c_end = today_cap
+                if c_start > c_end:
+                    c_start, c_end = c_end, c_start
+            except ValueError:
+                period = "year"
+        sy_int = int(stat_year) if stat_year.isdigit() else None
+        sm_str = stat_month if re.fullmatch(r"\d{4}-\d{2}", stat_month) else None
+        try:
+            data = build_viz_data(
+                period=period,
+                custom_start=c_start,
+                custom_end=c_end,
+                stat_year=sy_int,
+                stat_month=sm_str,
+            )
+            return JSONResponse(data)
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
 
     @app.post("/admin/passwords")
     def admin_passwords(

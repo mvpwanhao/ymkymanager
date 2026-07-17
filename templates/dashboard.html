@@ -6,215 +6,703 @@
 #}
 {% extends "base.html" %}
 {% block title %}数据可视化 · 产销量管理系统{% endblock %}
-{% block extra_js %}
-{{ super() }}
-<script src="/static/plotly-theme.js?v={{ asset_version }}" defer></script>
-<script>
-(function () {
-  var KEY = "ymky_visual_scroll";
-  function saveScroll() {
-    try { sessionStorage.setItem(KEY, String(window.scrollY || 0)); } catch (e) {}
-  }
-  var tabs = document.querySelector('.pill-tabs[role="tablist"]');
-  if (tabs) {
-    tabs.addEventListener("click", function (ev) {
-      if (ev.target.closest('a[href*="/go/visual"]')) saveScroll();
-    });
-    var card = tabs.closest(".card");
-    if (card) {
-      card.addEventListener("submit", function (ev) {
-        var f = ev.target;
-        if (f && String(f.method || "get").toLowerCase() === "get" && (f.getAttribute("action") || "/") === "/")
-          saveScroll();
-      });
-    }
-  }
-  var raw;
-  try { raw = sessionStorage.getItem(KEY); } catch (e) { raw = null; }
-  if (raw == null) return;
-  var y = parseInt(raw, 10);
-  if (isNaN(y) || y < 0) {
-    try { sessionStorage.removeItem(KEY); } catch (e) {}
-    return;
-  }
-  try { sessionStorage.removeItem(KEY); } catch (e) {}
-  function toPos() { window.scrollTo(0, y); }
-  toPos();
-  requestAnimationFrame(function () { toPos(); requestAnimationFrame(toPos); });
-  if (document.readyState === "complete")
-    toPos();
-  else
-    window.addEventListener("load", toPos, { once: true });
-  [0, 80, 200, 400].forEach(function (ms) { setTimeout(toPos, ms); });
-})();
-
-(function () {
-  function pickExportFilename(cd) {
-    var m = /filename\*=UTF-8''([^;\s]+)/i.exec(cd || "");
-    if (m && m[1]) {
-      try { return decodeURIComponent(m[1]); } catch (e) {}
-    }
-    m = /filename="([^"]+)"/i.exec(cd || "");
-    if (m && m[1]) return m[1];
-    return "ymky_visual_export.xlsx";
-  }
-  var btn = document.getElementById("ymky-visual-export");
-  if (!btn || btn.tagName !== "A") return;
-
-  btn.addEventListener("click", function (ev) {
-    if (!window.fetch || !document.createElement) return;
-    var href = btn.getAttribute("href");
-    if (!href || href.startsWith("#")) return;
-    ev.preventDefault();
-
-    btn.setAttribute("aria-busy", "true");
-
-    fetch(href, { credentials: "same-origin", cache: "no-store" })
-      .then(function (r) {
-        var ct = String(r.headers.get("Content-Type") || "").toLowerCase();
-        if (!r.ok) {
-          return r.text().then(function (t) {
-            window.alert(String(t || "导出失败 HTTP " + r.status).slice(0, 4000));
-          });
-        }
-        if (!ct.includes("spreadsheetml")) {
-          return r.text().then(function (t) {
-            window.alert(
-              "拿到的不是 Excel 文件（常为登录失效、Cloudflare/网关页的 HTML）：\n" +
-                String(t).slice(0, 2800),
-            );
-          });
-        }
-        var cd = r.headers.get("Content-Disposition") || "";
-        return r.blob().then(function (blob) {
-          var name = pickExportFilename(cd);
-          var url = URL.createObjectURL(blob);
-          var dl = document.createElement("a");
-          dl.href = url;
-          dl.download = name;
-          dl.rel = "noopener";
-          dl.style.display = "none";
-          document.body.appendChild(dl);
-          dl.click();
-          setTimeout(function () {
-            URL.revokeObjectURL(url);
-            dl.remove();
-          }, 4000);
-        });
-      })
-      .catch(function (e) {
-        window.alert("导出请求失败：" + String(e || "unknown"));
-      })
-      .finally(function () {
-        btn.removeAttribute("aria-busy");
-      });
-  });
-})();
-</script>
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 {% endblock %}
 {% block content %}
-{% if dash and dash.get('empty') %}
 <div class="card">
   <h1>数据可视化</h1>
-  <div class="empty-state">
-    <div class="em-icon" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg>
-    </div>
-    <p>{{ dash.get('message', '暂无可视化数据') }}</p>
-  </div>
-</div>
-{% else %}
+  <p class="muted">统计口径与报表/简报完全一致：产量按生产日期汇总，销量按周结束日期汇总；G/H 为混合累计（存储基数+后续F），I/J 从"合计"记录回退取值，K=H+I。能源局数据为昨日填报数据。</p>
 
-{% if dash and dash.kpis %}
-<div class="kpi-grid">
-  {% for k in dash.kpis %}
-  <div class="kpi-card">
-    <div class="kpi-label">{{ k.label }}</div>
-    <div class="kpi-value">{{ "%.2f"|format(k.value) }}<span class="kpi-unit">{{ k.unit }}</span></div>
+  <div class="viz-toolbar" style="display:flex;justify-content:space-between;align-items:flex-end;gap:0.85rem;flex-wrap:wrap;margin-bottom:0.6rem;">
+    <div class="pill-tabs" role="tablist" aria-label="统计区间">
+      <a href="javascript:void(0)" id="tab-year"  class="viz-tab" data-period="year">年度</a>
+      <a href="javascript:void(0)" id="tab-month" class="viz-tab" data-period="month">月度</a>
+      <a href="javascript:void(0)" id="tab-custom" class="viz-tab" data-period="custom">自定义</a>
+    </div>
+    <div class="row" style="gap:0.65rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+      <span class="muted" id="viz-period-label">加载中…</span>
+      <a id="viz-export-btn" class="btn btn-secondary inline" data-no-global-busy href="javascript:void(0)">导出 Excel 报表</a>
+    </div>
   </div>
-  {% endfor %}
+
+  <div id="viz-year-select-wrap" style="display:none;margin-bottom:0.75rem;">
+    <div class="form-grid cols-2" style="align-items:end;">
+      <div>
+        <label for="viz-stat-year">选择统计年</label>
+        <select id="viz-stat-year"></select>
+      </div>
+    </div>
+  </div>
+
+  <div id="viz-month-select-wrap" style="display:none;margin-bottom:0.75rem;">
+    <div class="form-grid cols-2" style="align-items:end;">
+      <div>
+        <label for="viz-stat-month">选择统计月</label>
+        <select id="viz-stat-month"></select>
+      </div>
+    </div>
+  </div>
+
+  <div id="viz-custom-wrap" style="display:none;margin-bottom:0.75rem;">
+    <div class="form-grid cols-2" style="align-items:end;">
+      <div>
+        <label for="viz-cstart">开始日期</label>
+        <input type="date" id="viz-cstart" max="{{ visual_custom_max_date }}" />
+      </div>
+      <div>
+        <label for="viz-cend">结束日期</label>
+        <input type="date" id="viz-cend" max="{{ visual_custom_max_date }}" />
+      </div>
+      <div class="full-row">
+        <button type="button" class="btn btn-primary inline" id="viz-custom-apply">应用自定义区间</button>
+      </div>
+    </div>
+  </div>
 </div>
-{% endif %}
+
+<div id="viz-loading" class="card" style="text-align:center;padding:2rem;">
+  <span class="ymky-busy__spinner" aria-hidden="true" style="display:inline-block;width:28px;height:28px;border:3px solid #ccc;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite;"></span>
+  <p style="margin-top:0.5rem;">加载中…</p>
+</div>
+
+<div id="viz-content" style="display:none;">
+
+<div class="kpi-grid" id="viz-kpis"></div>
 
 <div class="card">
-  <h1>各矿产销量汇总</h1>
-  <p class="muted">{{ dash.caption if dash and dash.caption is defined else '' }}</p>
-  <div class="table-wrap">{{ (dash.summary_html or '') | safe }}</div>
+  <h2>各矿产销量明细</h2>
+  <div class="table-wrap">
+    <table class="data-table" id="viz-mine-table">
+      <thead>
+        <tr>
+          <th>煤矿名称</th>
+          <th>期间产量(吨)</th>
+          <th>周产量(吨)</th>
+          <th>月累计产量(吨)</th>
+          <th>年累计产量(吨)</th>
+          <th>周销量(吨)</th>
+          <th>月累计自产煤销量(吨)</th>
+          <th>年累计自产煤销量(吨)</th>
+          <th>今日报能源局产量(吨)</th>
+          <th>今日报能源局销量(吨)</th>
+        </tr>
+      </thead>
+      <tbody id="viz-mine-tbody"></tbody>
+      <tfoot id="viz-mine-tfoot"></tfoot>
+    </table>
+  </div>
 </div>
 
 <div class="card">
   <h2>统计图表</h2>
-  <div class="row" style="justify-content:space-between;align-items:flex-end;gap:0.85rem;flex-wrap:wrap;margin-bottom:0.6rem;">
-    <div class="pill-tabs" role="tablist" aria-label="统计区间">
-      <a href="/go/visual?period=year"  {% if period == 'year'  %}aria-current="page"{% endif %}>年度</a>
-      <a href="/go/visual?period=month" {% if period == 'month' %}aria-current="page"{% endif %}>月度</a>
-      <a href="/go/visual?period=custom" {% if period == 'custom' %}aria-current="page"{% endif %}>自定义</a>
-    </div>
-    <div class="row" style="gap:0.65rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-      <span class="muted">{{ dash.period_caption if dash and dash.period_caption is defined else '' }}</span>
-      {% if dash and dash.empty is defined and not dash.empty %}
-      <a id="ymky-visual-export" class="btn btn-secondary inline" data-no-global-busy href="/export/visual-production.xlsx{% if request.url.query %}?{{ request.url.query }}{% endif %}">导出 Excel 报表（含图表）</a>
-      {% endif %}
-    </div>
+
+  <div style="margin-bottom:1.5rem;">
+    <h3>各矿产量对比</h3>
+    <div id="chart-prod-bar" style="width:100%;height:380px;"></div>
   </div>
 
-  {% if period == 'year' and dash and dash.year_options %}
-  <form method="get" action="/" class="form-grid cols-2" style="align-items:end;margin:0 0 0.75rem;">
-    <input type="hidden" name="period" value="year" />
-    <div>
-      <label for="stat_year">选择统计年</label>
-      <select id="stat_year" name="stat_year" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
-        {% for o in dash.year_options %}
-        <option value="{{ o.value }}" {% if o.value == dash.selected_year %}selected{% endif %}>{{ o.label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <noscript>
-      <div class="full-row"><button type="submit" class="btn btn-primary inline">查看</button></div>
-    </noscript>
-  </form>
-  {% endif %}
+  <div style="margin-bottom:1.5rem;">
+    <h3>各矿销量对比</h3>
+    <div id="chart-sales-bar" style="width:100%;height:380px;"></div>
+  </div>
 
-  {% if period == 'month' and dash and dash.month_options %}
-  <form method="get" action="/" class="form-grid cols-2" style="align-items:end;margin:0 0 0.75rem;">
-    <input type="hidden" name="period" value="month" />
-    <div>
-      <label for="stat_month">选择统计月</label>
-      <select id="stat_month" name="stat_month" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
-        {% for o in dash.month_options %}
-        <option value="{{ o.value }}" {% if o.value == dash.selected_month %}selected{% endif %}>{{ o.label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <noscript>
-      <div class="full-row"><button type="submit" class="btn btn-primary inline">查看</button></div>
-    </noscript>
-  </form>
-  {% endif %}
+  <div style="margin-bottom:1.5rem;">
+    <h3>各矿产量占比</h3>
+    <div id="chart-prod-pie" style="width:100%;height:380px;"></div>
+  </div>
 
-  {% if period == 'custom' %}
-  <form method="get" action="/" class="form-grid cols-2" style="align-items:end;margin:0 0 0.75rem;">
-    <input type="hidden" name="period" value="custom" />
-    <div>
-      <label for="cstart">开始日期</label>
-      <input type="date" id="cstart" name="start" max="{{ visual_custom_max_date }}" value="{{ c_start or '' }}" />
-    </div>
-    <div>
-      <label for="cend">结束日期</label>
-      <input type="date" id="cend" name="end" max="{{ visual_custom_max_date }}" value="{{ c_end or '' }}" />
-    </div>
-    <div class="full-row">
-      <button type="submit" class="btn btn-primary inline">应用自定义区间</button>
-    </div>
-  </form>
-  {% endif %}
+  <div style="margin-bottom:1.5rem;">
+    <h3>各矿销量占比</h3>
+    <div id="chart-sales-pie" style="width:100%;height:380px;"></div>
+  </div>
 
-  <h3>各矿产量占比</h3>
-  <div class="plot-wrap plot-pie">{{ (dash.pie_html or '') | safe }}</div>
-  <h3>各矿产量柱状</h3>
-  <div class="plot-wrap">{{ (dash.bar_html or '') | safe }}</div>
-  <h3>日产量趋势</h3>
-  <div class="plot-wrap plot-trend">{{ (dash.trend_html or '') | safe }}</div>
+  <div style="margin-bottom:1.5rem;">
+    <h3>日产量趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（点击下方图例切换显示合计/各矿数据）</span></h3>
+    <div id="chart-prod-trend" style="width:100%;height:460px;"></div>
+  </div>
+
+  <div style="margin-bottom:1.5rem;">
+    <h3>周销量趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（点击下方图例切换显示合计/各矿数据）</span></h3>
+    <div id="chart-sales-trend" style="width:100%;height:460px;"></div>
+  </div>
 </div>
-{% endif %}
+
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.viz-tab { cursor:pointer; }
+#viz-kpis .kpi-card { min-width:140px; }
+</style>
+
+<script>
+(function () {
+  "use strict";
+
+  var charts = {};
+  var currentPeriod = "year";
+  var currentParams = { period: "year" };
+  var isDark = document.documentElement.getAttribute("data-color-mode") === "dark";
+
+  function getTextColor() { return isDark ? "#e2e8f0" : "#1e293b"; }
+  function getAxisColor() { return isDark ? "#94a3b8" : "#64748b"; }
+  function getGridColor() { return isDark ? "rgba(148,163,184,0.15)" : "rgba(100,116,139,0.12)"; }
+  function getBgColor() { return isDark ? "#1e293b" : "#ffffff"; }
+  function getTooltipBg() { return isDark ? "rgba(30,41,59,0.96)" : "rgba(255,255,255,0.96)"; }
+  function getTooltipBorder() { return isDark ? "rgba(148,163,184,0.3)" : "rgba(100,116,139,0.2)"; }
+
+  var COLORWAY = ["#2563eb", "#ea580c", "#16a34a", "#dc2626", "#7c3aed", "#0d9488"];
+
+  function tooltipBase(extra) {
+    var base = {
+      backgroundColor: getTooltipBg(),
+      borderColor: getTooltipBorder(),
+      borderWidth: 1,
+      textStyle: { color: getTextColor() },
+      extraCssText: "box-shadow: 0 2px 8px rgba(0,0,0,0.15);"
+    };
+    if (extra) { for (var k in extra) { base[k] = extra[k]; } }
+    return base;
+  }
+
+  function ensureChart(domId) {
+    var dom = document.getElementById(domId);
+    if (!dom) return null;
+    if (charts[domId]) { charts[domId].dispose(); }
+    var c = echarts.init(dom, null, { renderer: "canvas" });
+    charts[domId] = c;
+    return c;
+  }
+
+  function fmtNum(v) {
+    if (v == null || isNaN(v)) return "0.00";
+    return parseFloat(v).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function renderKpis(kpis) {
+    var html = "";
+    for (var i = 0; i < kpis.length; i++) {
+      var k = kpis[i];
+      html += '<div class="kpi-card">'
+        + '<div class="kpi-label">' + k.label + '</div>'
+        + '<div class="kpi-value">' + fmtNum(k.value) + '<span class="kpi-unit">' + k.unit + '</span></div>'
+        + '</div>';
+    }
+    document.getElementById("viz-kpis").innerHTML = html;
+  }
+
+  function renderMineTable(mineDetails) {
+    var tbody = "";
+    var tot = { period_prod: 0, week_prod: 0, month_prod: 0, year_prod: 0,
+                week_sales: 0, month_sales: 0, year_sales: 0,
+                energy_prod: 0, energy_sales: 0 };
+    var keys = ["period_prod", "week_prod", "month_prod", "year_prod",
+                "week_sales", "month_sales", "year_sales",
+                "energy_prod", "energy_sales"];
+    for (var i = 0; i < mineDetails.length; i++) {
+      var m = mineDetails[i];
+      tbody += "<tr><td>" + m.name + "</td>"
+        + "<td>" + fmtNum(m.period_prod) + "</td>"
+        + "<td>" + fmtNum(m.week_prod) + "</td>"
+        + "<td>" + fmtNum(m.month_prod) + "</td>"
+        + "<td>" + fmtNum(m.year_prod) + "</td>"
+        + "<td>" + fmtNum(m.week_sales) + "</td>"
+        + "<td>" + fmtNum(m.month_sales) + "</td>"
+        + "<td>" + fmtNum(m.year_sales) + "</td>"
+        + "<td>" + fmtNum(m.energy_prod) + "</td>"
+        + "<td>" + fmtNum(m.energy_sales) + "</td>"
+        + "</tr>";
+      for (var j = 0; j < keys.length; j++) tot[keys[j]] += m[keys[j]];
+    }
+    var tfoot = "<tr style='font-weight:bold;'>"
+      + "<td>合计</td>"
+      + "<td>" + fmtNum(tot.period_prod) + "</td>"
+      + "<td>" + fmtNum(tot.week_prod) + "</td>"
+      + "<td>" + fmtNum(tot.month_prod) + "</td>"
+      + "<td>" + fmtNum(tot.year_prod) + "</td>"
+      + "<td>" + fmtNum(tot.week_sales) + "</td>"
+      + "<td>" + fmtNum(tot.month_sales) + "</td>"
+      + "<td>" + fmtNum(tot.year_sales) + "</td>"
+      + "<td>" + fmtNum(tot.energy_prod) + "</td>"
+      + "<td>" + fmtNum(tot.energy_sales) + "</td>"
+      + "</tr>";
+    document.getElementById("viz-mine-tbody").innerHTML = tbody;
+    document.getElementById("viz-mine-tfoot").innerHTML = tfoot;
+  }
+
+  function renderProdBar(mineDetails) {
+    var c = ensureChart("chart-prod-bar");
+    if (!c) return;
+    var names = mineDetails.map(function(m) { return m.name; });
+    var periodProd = mineDetails.map(function(m) { return m.period_prod; });
+    var yearProd = mineDetails.map(function(m) { return m.year_prod; });
+
+    c.setOption({
+      color: COLORWAY,
+      backgroundColor: getBgColor(),
+      tooltip: tooltipBase({
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: function(params) {
+          var s = params[0].name + "<br/>";
+          for (var i = 0; i < params.length; i++) {
+            s += params[i].marker + params[i].seriesName + ": " + fmtNum(params[i].value) + " 吨<br/>";
+          }
+          return s;
+        }
+      }),
+      legend: { data: ["期间产量", "年累计产量"], top: 5, textStyle: { color: getTextColor() } },
+      grid: { left: "3%", right: "4%", bottom: "3%", top: 50, containLabel: true },
+      xAxis: {
+        type: "category", data: names,
+        axisLabel: { color: getAxisColor(), interval: 0, rotate: 15 },
+        axisLine: { lineStyle: { color: getGridColor() } }
+      },
+      yAxis: {
+        type: "value", name: "产量(吨)",
+        nameTextStyle: { color: getAxisColor() },
+        axisLabel: { color: getAxisColor() },
+        splitLine: { lineStyle: { color: getGridColor() } }
+      },
+      series: [
+        { name: "期间产量", type: "bar", data: periodProd, barGap: "10%", itemStyle: { borderRadius: [4, 4, 0, 0] } },
+        { name: "年累计产量", type: "bar", data: yearProd, itemStyle: { borderRadius: [4, 4, 0, 0] } }
+      ]
+    });
+  }
+
+  function renderSalesBar(mineDetails) {
+    var c = ensureChart("chart-sales-bar");
+    if (!c) return;
+    var names = mineDetails.map(function(m) { return m.name; });
+    var weekSales = mineDetails.map(function(m) { return m.week_sales; });
+    var monthSales = mineDetails.map(function(m) { return m.month_sales; });
+    var yearSales = mineDetails.map(function(m) { return m.year_sales; });
+
+    c.setOption({
+      color: COLORWAY,
+      backgroundColor: getBgColor(),
+      tooltip: tooltipBase({
+        trigger: "axis", axisPointer: { type: "shadow" },
+        formatter: function(params) {
+          var s = params[0].name + "<br/>";
+          for (var i = 0; i < params.length; i++) {
+            s += params[i].marker + params[i].seriesName + ": " + fmtNum(params[i].value) + " 吨<br/>";
+          }
+          return s;
+        }
+      }),
+      legend: { data: ["周销量", "月累计销量", "年累计销量"], top: 5, textStyle: { color: getTextColor() } },
+      grid: { left: "3%", right: "4%", bottom: "3%", top: 50, containLabel: true },
+      xAxis: {
+        type: "category", data: names,
+        axisLabel: { color: getAxisColor(), interval: 0, rotate: 15 },
+        axisLine: { lineStyle: { color: getGridColor() } }
+      },
+      yAxis: {
+        type: "value", name: "销量(吨)",
+        nameTextStyle: { color: getAxisColor() },
+        axisLabel: { color: getAxisColor() },
+        splitLine: { lineStyle: { color: getGridColor() } }
+      },
+      series: [
+        { name: "周销量", type: "bar", data: weekSales, itemStyle: { borderRadius: [4, 4, 0, 0] } },
+        { name: "月累计销量", type: "bar", data: monthSales, itemStyle: { borderRadius: [4, 4, 0, 0] } },
+        { name: "年累计销量", type: "bar", data: yearSales, itemStyle: { borderRadius: [4, 4, 0, 0] } }
+      ]
+    });
+  }
+
+  function renderProdPie(mineDetails) {
+    var c = ensureChart("chart-prod-pie");
+    if (!c) return;
+    var data = mineDetails.map(function(m) { return { name: m.name, value: m.period_prod }; });
+    var total = data.reduce(function(s, d) { return s + d.value; }, 0);
+
+    c.setOption({
+      color: COLORWAY,
+      backgroundColor: getBgColor(),
+      title: { text: "期间总产量: " + fmtNum(total) + " 吨", left: "left", top: 0,
+        textStyle: { color: getTextColor(), fontSize: 13, fontWeight: "normal" } },
+      tooltip: tooltipBase({
+        trigger: "item",
+        formatter: "{b}<br/>产量: {c} 吨<br/>占比: {d}%"
+      }),
+      legend: { orient: "vertical", right: 10, top: "middle", textStyle: { color: getTextColor() } },
+      series: [{
+        type: "pie", radius: ["35%", "65%"], center: ["40%", "55%"], data: data,
+        label: { color: getTextColor(), formatter: "{b}\n{c}吨\n{d}%" },
+        labelLine: { lineStyle: { color: getAxisColor() } },
+        itemStyle: { borderColor: getBgColor(), borderWidth: 2 },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: "rgba(0,0,0,0.3)" } }
+      }]
+    });
+  }
+
+  function renderSalesPie(mineDetails) {
+    var c = ensureChart("chart-sales-pie");
+    if (!c) return;
+    var data = mineDetails.map(function(m) { return { name: m.name, value: m.year_sales }; })
+      .filter(function(d) { return d.value > 0; });
+    var total = data.reduce(function(s, d) { return s + d.value; }, 0);
+
+    if (total === 0) {
+      c.setOption({ backgroundColor: getBgColor(),
+        title: { text: "当前区间暂无销量数据", left: "center", top: "center",
+          textStyle: { color: getAxisColor(), fontSize: 14 } } });
+      return;
+    }
+
+    c.setOption({
+      color: COLORWAY,
+      backgroundColor: getBgColor(),
+      title: { text: "年累计总销量: " + fmtNum(total) + " 吨", left: "left", top: 0,
+        textStyle: { color: getTextColor(), fontSize: 13, fontWeight: "normal" } },
+      tooltip: tooltipBase({
+        trigger: "item",
+        formatter: "{b}<br/>销量: {c} 吨<br/>占比: {d}%"
+      }),
+      legend: { orient: "vertical", right: 10, top: "middle", textStyle: { color: getTextColor() } },
+      series: [{
+        type: "pie", radius: ["35%", "65%"], center: ["40%", "55%"], data: data,
+        label: { color: getTextColor(), formatter: "{b}\n{c}吨\n{d}%" },
+        labelLine: { lineStyle: { color: getAxisColor() } },
+        itemStyle: { borderColor: getBgColor(), borderWidth: 2 },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: "rgba(0,0,0,0.3)" } }
+      }]
+    });
+  }
+
+  function renderProdTrend(data, mineTrend) {
+    var c = ensureChart("chart-prod-trend");
+    if (!c) return;
+    var dates = data.map(function(d) { return d.date; });
+    var totalValues = data.map(function(d) { return d.value; });
+
+    if (dates.length === 0) {
+      c.setOption({ backgroundColor: getBgColor(),
+        title: { text: "当前区间暂无日产量数据", left: "center", top: "center",
+          textStyle: { color: getAxisColor(), fontSize: 14 } } });
+      return;
+    }
+
+    // 合并所有日期（含各矿日期）
+    var allDates = dates.slice();
+    var mineNames = mineTrend ? Object.keys(mineTrend) : [];
+    for (var mi = 0; mi < mineNames.length; mi++) {
+      var mt = mineTrend[mineNames[mi]];
+      for (var mj = 0; mj < mt.length; mj++) {
+        if (allDates.indexOf(mt[mj].date) === -1) allDates.push(mt[mj].date);
+      }
+    }
+    allDates.sort();
+
+    // 构建各矿 series 数据
+    var series = [];
+    // 合计线（默认显示）
+    var totalMap = {};
+    for (var i = 0; i < data.length; i++) { totalMap[data[i].date] = data[i].value; }
+    series.push({
+      name: "合计", type: "line", data: allDates.map(function(d) { return totalMap[d] || 0; }),
+      smooth: false, symbol: "circle", symbolSize: 6, lineStyle: { width: 2.5 },
+      areaStyle: { opacity: 0.1 },
+      label: { show: allDates.length <= 31, position: "top", color: getTextColor(), fontSize: 9,
+        formatter: function(p) { return p.value.toFixed(0); } }
+    });
+    // 各矿线（默认隐藏，点击图例显示）
+    for (var si = 0; si < mineNames.length; si++) {
+      var mName = mineNames[si];
+      var mArr = mineTrend[mName];
+      var mMap = {};
+      for (var k = 0; k < mArr.length; k++) { mMap[mArr[k].date] = mArr[k].value; }
+      series.push({
+        name: mName, type: "line", data: allDates.map(function(d) { return mMap[d] || 0; }),
+        smooth: false, symbol: "circle", symbolSize: 4, lineStyle: { width: 1.8, type: "solid" },
+        label: { show: false }
+      });
+    }
+
+    var legendData = ["合计"].concat(mineNames);
+
+    c.setOption({
+      color: [COLORWAY[0]].concat(COLORWAY.slice(1)),
+      backgroundColor: getBgColor(),
+      tooltip: tooltipBase({
+        trigger: "axis",
+        formatter: function(params) {
+          var s = params[0].name + "<br/>";
+          for (var i = 0; i < params.length; i++) {
+            if (params[i].value !== 0 || params[i].seriesName === "合计") {
+              s += params[i].marker + params[i].seriesName + ": " + fmtNum(params[i].value) + " 吨<br/>";
+            }
+          }
+          return s;
+        }
+      }),
+      legend: {
+        data: legendData, top: 0,
+        textStyle: { color: getTextColor(), fontSize: 11 },
+        selected: function() {
+          var sel = { "合计": true };
+          for (var i = 0; i < mineNames.length; i++) sel[mineNames[i]] = false;
+          return sel;
+        }()
+      },
+      grid: { left: "3%", right: "4%", bottom: "10%", top: 50, containLabel: true },
+      xAxis: { type: "category", data: allDates,
+        axisLabel: { color: getAxisColor(), rotate: allDates.length > 20 ? -40 : 0 },
+        axisLine: { lineStyle: { color: getGridColor() } } },
+      yAxis: { type: "value", name: "产量(吨)",
+        nameTextStyle: { color: getAxisColor() },
+        axisLabel: { color: getAxisColor() },
+        splitLine: { lineStyle: { color: getGridColor() } } },
+      series: series
+    });
+  }
+
+  function renderSalesTrend(data, mineTrend) {
+    var c = ensureChart("chart-sales-trend");
+    if (!c) return;
+    var dates = data.map(function(d) { return d.date; });
+    var totalValues = data.map(function(d) { return d.value; });
+
+    if (dates.length === 0) {
+      c.setOption({ backgroundColor: getBgColor(),
+        title: { text: "当前区间暂无销量数据", left: "center", top: "center",
+          textStyle: { color: getAxisColor(), fontSize: 14 } } });
+      return;
+    }
+
+    // 合并所有日期（含各矿日期）
+    var allDates = dates.slice();
+    var mineNames = mineTrend ? Object.keys(mineTrend) : [];
+    for (var mi = 0; mi < mineNames.length; mi++) {
+      var mt = mineTrend[mineNames[mi]];
+      for (var mj = 0; mj < mt.length; mj++) {
+        if (allDates.indexOf(mt[mj].date) === -1) allDates.push(mt[mj].date);
+      }
+    }
+    allDates.sort();
+
+    // 构建各矿 series 数据
+    var series = [];
+    // 合计线（默认显示）
+    var totalMap = {};
+    for (var i = 0; i < data.length; i++) { totalMap[data[i].date] = data[i].value; }
+    series.push({
+      name: "合计", type: "line", data: allDates.map(function(d) { return totalMap[d] || 0; }),
+      smooth: false, symbol: "circle", symbolSize: 7, lineStyle: { width: 2.5 },
+      areaStyle: { opacity: 0.1 },
+      label: { show: allDates.length <= 20, position: "top", color: getTextColor(), fontSize: 10,
+        formatter: function(p) { return p.value.toFixed(0); } }
+    });
+    // 各矿线（默认隐藏，点击图例显示）
+    for (var si = 0; si < mineNames.length; si++) {
+      var mName = mineNames[si];
+      var mArr = mineTrend[mName];
+      var mMap = {};
+      for (var k = 0; k < mArr.length; k++) { mMap[mArr[k].date] = mArr[k].value; }
+      series.push({
+        name: mName, type: "line", data: allDates.map(function(d) { return mMap[d] || 0; }),
+        smooth: false, symbol: "circle", symbolSize: 4, lineStyle: { width: 1.8, type: "solid" },
+        label: { show: false }
+      });
+    }
+
+    var legendData = ["合计"].concat(mineNames);
+
+    c.setOption({
+      color: [COLORWAY[1]].concat(COLORWAY),
+      backgroundColor: getBgColor(),
+      tooltip: tooltipBase({
+        trigger: "axis",
+        formatter: function(params) {
+          var s = params[0].name + "<br/>";
+          for (var i = 0; i < params.length; i++) {
+            if (params[i].value !== 0 || params[i].seriesName === "合计") {
+              s += params[i].marker + params[i].seriesName + ": " + fmtNum(params[i].value) + " 吨<br/>";
+            }
+          }
+          return s;
+        }
+      }),
+      legend: {
+        data: legendData, top: 0,
+        textStyle: { color: getTextColor(), fontSize: 11 },
+        selected: function() {
+          var sel = { "合计": true };
+          for (var i = 0; i < mineNames.length; i++) sel[mineNames[i]] = false;
+          return sel;
+        }()
+      },
+      grid: { left: "3%", right: "4%", bottom: "10%", top: 50, containLabel: true },
+      xAxis: { type: "category", data: allDates,
+        axisLabel: { color: getAxisColor(), rotate: allDates.length > 10 ? -30 : 0 },
+        axisLine: { lineStyle: { color: getGridColor() } } },
+      yAxis: { type: "value", name: "销量(吨)",
+        nameTextStyle: { color: getAxisColor() },
+        axisLabel: { color: getAxisColor() },
+        splitLine: { lineStyle: { color: getGridColor() } } },
+      series: series
+    });
+  }
+
+  function renderAll(data) {
+    document.getElementById("viz-loading").style.display = "none";
+    document.getElementById("viz-content").style.display = "block";
+    document.getElementById("viz-period-label").textContent = data.period_label;
+
+    renderKpis(data.kpis);
+    renderMineTable(data.mine_details);
+    renderProdBar(data.mine_details);
+    renderSalesBar(data.mine_details);
+    renderProdPie(data.mine_details);
+    renderSalesPie(data.mine_details);
+    renderProdTrend(data.prod_trend, data.mine_prod_trend);
+    renderSalesTrend(data.sales_trend, data.mine_sales_trend);
+
+    if (data.year_options && data.year_options.length > 0) {
+      var ys = document.getElementById("viz-stat-year");
+      ys.innerHTML = data.year_options.map(function(o) {
+        return '<option value="' + o.value + '"' + (o.value == data.selected_year ? " selected" : "") + ">" + o.label + "</option>";
+      }).join("");
+    }
+    if (data.month_options && data.month_options.length > 0) {
+      var ms = document.getElementById("viz-stat-month");
+      ms.innerHTML = data.month_options.map(function(o) {
+        return '<option value="' + o.value + '"' + (o.value == data.selected_month ? " selected" : "") + ">" + o.label + "</option>";
+      }).join("");
+    }
+  }
+
+  function buildParams(period) {
+    var params = { period: period };
+    if (period === "year") {
+      var sy = document.getElementById("viz-stat-year");
+      if (sy.value) params.stat_year = sy.value;
+    } else if (period === "month") {
+      var sm = document.getElementById("viz-stat-month");
+      if (sm.value) params.stat_month = sm.value;
+    } else if (period === "custom") {
+      var cs = document.getElementById("viz-cstart");
+      var ce = document.getElementById("viz-cend");
+      if (cs.value && ce.value) {
+        params.start = cs.value;
+        params.end = ce.value;
+      }
+    }
+    return params;
+  }
+
+  function fetchData(params) {
+    currentParams = params;
+    document.getElementById("viz-loading").style.display = "block";
+    document.getElementById("viz-content").style.display = "none";
+
+    var qs = new URLSearchParams();
+    qs.set("period", params.period);
+    if (params.period === "custom" && params.start && params.end) {
+      qs.set("start", params.start);
+      qs.set("end", params.end);
+    }
+    if (params.period === "year" && params.stat_year) qs.set("stat_year", params.stat_year);
+    if (params.period === "month" && params.stat_month) qs.set("stat_month", params.stat_month);
+
+    fetch("/api/viz/data?" + qs.toString(), { credentials: "same-origin" })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(data) { if (data.error) throw new Error(data.error); renderAll(data); })
+      .catch(function(err) {
+        document.getElementById("viz-loading").innerHTML =
+          '<p style="color:#dc2626;">加载失败: ' + err.message + "</p>";
+      });
+  }
+
+  function switchPeriod(period) {
+    currentPeriod = period;
+    var tabs = document.querySelectorAll(".viz-tab");
+    for (var i = 0; i < tabs.length; i++) tabs[i].removeAttribute("aria-current");
+    document.getElementById("tab-" + period).setAttribute("aria-current", "page");
+
+    document.getElementById("viz-year-select-wrap").style.display = (period === "year") ? "block" : "none";
+    document.getElementById("viz-month-select-wrap").style.display = (period === "month") ? "block" : "none";
+    document.getElementById("viz-custom-wrap").style.display = (period === "custom") ? "block" : "none";
+
+    fetchData(buildParams(period));
+  }
+
+  // ── 事件绑定 ──
+  document.querySelectorAll(".viz-tab").forEach(function(tab) {
+    tab.addEventListener("click", function() { switchPeriod(tab.getAttribute("data-period")); });
+  });
+
+  document.getElementById("viz-stat-year").addEventListener("change", function() {
+    fetchData({ period: "year", stat_year: this.value });
+  });
+
+  document.getElementById("viz-stat-month").addEventListener("change", function() {
+    fetchData({ period: "month", stat_month: this.value });
+  });
+
+  document.getElementById("viz-custom-apply").addEventListener("click", function() {
+    var cs = document.getElementById("viz-cstart").value;
+    var ce = document.getElementById("viz-cend").value;
+    if (!cs || !ce) { alert("请选择开始和结束日期"); return; }
+    fetchData({ period: "custom", start: cs, end: ce });
+  });
+
+  // ── Excel 导出 ──
+  var exportBtn = document.getElementById("viz-export-btn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", function() {
+      var qs = new URLSearchParams();
+      qs.set("period", currentParams.period);
+      if (currentParams.period === "custom" && currentParams.start && currentParams.end) {
+        qs.set("start", currentParams.start);
+        qs.set("end", currentParams.end);
+      }
+      if (currentParams.period === "year" && currentParams.stat_year) qs.set("stat_year", currentParams.stat_year);
+      if (currentParams.period === "month" && currentParams.stat_month) qs.set("stat_month", currentParams.stat_month);
+
+      exportBtn.setAttribute("aria-busy", "true");
+      fetch("/export/viz-data.xlsx?" + qs.toString(), { credentials: "same-origin", cache: "no-store" })
+        .then(function(r) {
+          if (!r.ok) return r.text().then(function(t) { throw new Error(t || "HTTP " + r.status); });
+          var cd = r.headers.get("Content-Disposition") || "";
+          var name = "ymky_viz_export.xlsx";
+          var m = /filename\*=UTF-8''([^;\s]+)/i.exec(cd);
+          if (m && m[1]) { try { name = decodeURIComponent(m[1]); } catch (e) {} }
+          else { m = /filename="([^"]+)"/i.exec(cd); if (m && m[1]) name = m[1]; }
+          return r.blob().then(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var dl = document.createElement("a");
+            dl.href = url; dl.download = name; dl.rel = "noopener"; dl.style.display = "none";
+            document.body.appendChild(dl); dl.click();
+            setTimeout(function() { URL.revokeObjectURL(url); dl.remove(); }, 4000);
+          });
+        })
+        .catch(function(e) { window.alert("导出失败：" + String(e || "unknown")); })
+        .finally(function() { exportBtn.removeAttribute("aria-busy"); });
+    });
+  }
+
+  // ── 监听主题变化 ──
+  var observer = new MutationObserver(function() {
+    var newDark = document.documentElement.getAttribute("data-color-mode") === "dark";
+    if (newDark !== isDark) {
+      isDark = newDark;
+      fetchData(buildParams(currentPeriod));
+    }
+  });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-color-mode"] });
+
+  // ── 窗口大小变化时重绘图表 ──
+  window.addEventListener("resize", function() {
+    for (var key in charts) { if (charts[key]) charts[key].resize(); }
+  });
+
+  // ── 初始加载 ──
+  switchPeriod("year");
+})();
+</script>
 {% endblock %}

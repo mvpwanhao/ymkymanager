@@ -20,6 +20,7 @@ from app.timeutil import (
     get_26day_month_range,
     get_26day_statistical_month_label,
     get_26day_year_range,
+    get_weekly_range,
     today_beijing,
 )
 
@@ -212,14 +213,39 @@ def build_summary_and_charts(
         energy_yesterday_prod = pd.Series(dtype="float64")
         energy_yesterday_sales = pd.Series(dtype="float64")
 
+    # ── 本周产量 & 本周销量 ──
+    wk_start, wk_end = get_weekly_range(today)
+    actual_week = actual_df[
+        (actual_df["生产日期"] >= wk_start) & (actual_df["生产日期"] <= wk_end)
+    ].groupby("所属煤矿")["产量(吨)"].sum()
+
+    sales_df = exclude_mines(read_records(s.actual_sales_path))
+    # 排除"合计"记录（公司级合计行，非矿记录）
+    if not sales_df.empty and "所属煤矿" in sales_df.columns:
+        sales_df = sales_df[sales_df["所属煤矿"].astype(str) != "合计"].copy()
+    if not sales_df.empty and {"所属煤矿", "周起始日期", "周结束日期", "销量(吨)"}.issubset(sales_df.columns):
+        sales_df = sales_df.copy()
+        sales_df["周起始日期"] = pd.to_datetime(sales_df["周起始日期"]).dt.date
+        sales_df["周结束日期"] = pd.to_datetime(sales_df["周结束日期"]).dt.date
+        sales_df["销量(吨)"] = pd.to_numeric(sales_df["销量(吨)"], errors="coerce").fillna(0)
+        sales_week = sales_df[
+            (sales_df["周起始日期"] == wk_start) & (sales_df["周结束日期"] == wk_end)
+        ].groupby("所属煤矿")["销量(吨)"].sum()
+    else:
+        sales_week = pd.Series(dtype="float64")
+
     table_df = pd.DataFrame({"煤矿名称": MINE_LIST})
     table_df["昨日实际产量(吨)"] = table_df["煤矿名称"].map(actual_yesterday).fillna(0)
+    table_df["本周产量(吨)"] = table_df["煤矿名称"].map(actual_week).fillna(0)
+    table_df["本周销量(吨)"] = table_df["煤矿名称"].map(sales_week).fillna(0)
     table_df["月度总产量(吨)"] = table_df["煤矿名称"].map(actual_month).fillna(0)
     table_df["年度总产量(吨)"] = table_df["煤矿名称"].map(actual_year).fillna(0)
     table_df["今日报能源局产量(吨)"] = table_df["煤矿名称"].map(energy_yesterday_prod).fillna(0)
     table_df["今日报能源局销量(吨)"] = table_df["煤矿名称"].map(energy_yesterday_sales).fillna(0)
     for c in [
         "昨日实际产量(吨)",
+        "本周产量(吨)",
+        "本周销量(吨)",
         "月度总产量(吨)",
         "年度总产量(吨)",
         "今日报能源局产量(吨)",
@@ -229,6 +255,8 @@ def build_summary_and_charts(
     total_row = {"煤矿名称": "合计"}
     kpi_keys = [
         "昨日实际产量(吨)",
+        "本周产量(吨)",
+        "本周销量(吨)",
         "月度总产量(吨)",
         "年度总产量(吨)",
         "今日报能源局产量(吨)",
@@ -238,6 +266,8 @@ def build_summary_and_charts(
         total_row[c] = float(table_df[c].sum())
     kpis = [
         {"label": "昨日实际产量", "value": float(total_row["昨日实际产量(吨)"]), "unit": "吨"},
+        {"label": "本周产量", "value": float(total_row["本周产量(吨)"]), "unit": "吨"},
+        {"label": "本周销量", "value": float(total_row["本周销量(吨)"]), "unit": "吨"},
         {"label": "月度累计产量", "value": float(total_row["月度总产量(吨)"]), "unit": "吨"},
         {"label": "年度累计产量", "value": float(total_row["年度总产量(吨)"]), "unit": "吨"},
         {"label": "今日报能源局产量", "value": float(total_row["今日报能源局产量(吨)"]), "unit": "吨"},
@@ -252,6 +282,7 @@ def build_summary_and_charts(
     cap = (
         f"今天 {today.isoformat()}　·　"
         f"「昨日实际产量」「今日报能源局」均取 {yesterday.isoformat()} 当天数据　·　"
+        f"「本周产量」「本周销量」取 {wk_start.isoformat()} 至 {wk_end.isoformat()} 周区间数据　·　"
         f"「月度总产量」为 {stat_month_label}（{month_start.isoformat()} 至 {month_end.isoformat()}）　·　"
         f"「年度总产量」为 {stat_year_label}（{annual_start.isoformat()} 至 {annual_end.isoformat()}）"
     )
@@ -316,7 +347,9 @@ def build_summary_and_charts(
         "month_options": month_options,
     }
     if period_df.empty:
-        pie_h = bar_h = trend_h = "<p class='muted'>当前区间暂无产量数据。</p>"
+        empty_msg = "<p class='muted'>当前区间暂无产量数据。</p>"
+        pie_h = bar_h = trend_h = empty_msg
+        sales_pie_h = sales_trend_h = "<p class='muted'>当前区间暂无销量数据。</p>"
         return {
             "empty": False,
             "summary_html": table_html,
@@ -326,6 +359,8 @@ def build_summary_and_charts(
             "pie_html": pie_h,
             "bar_html": bar_h,
             "trend_html": trend_h,
+            "sales_pie_html": sales_pie_h,
+            "sales_trend_html": sales_trend_h,
             **period_meta,
         }
 
@@ -398,29 +433,130 @@ def build_summary_and_charts(
     )
     _apply_cjk_axes(pie_fig)
 
+    # ── 销量饼状图 ──
+    sales_period_df = pd.DataFrame()
+    if not sales_df.empty and {"所属煤矿", "周结束日期", "销量(吨)"}.issubset(sales_df.columns):
+        sales_period_df = sales_df[
+            (sales_df["周结束日期"] >= start_date) & (sales_df["周结束日期"] <= end_date)
+        ].copy()
+
+    if sales_period_df.empty or sales_period_df["销量(吨)"].sum() == 0:
+        sales_pie_fig = go.Figure()
+        sales_pie_fig.update_layout(font=_chart_font_kw(size=12))
+        sales_pie_fig.add_annotation(
+            text="当前区间暂无销量数据",
+            x=0.5, y=0.5, showarrow=False,
+            font=_chart_font_kw(size=14),
+        )
+        _lock_axes(sales_pie_fig)
+    else:
+        sales_share = (
+            sales_period_df.groupby("所属煤矿", as_index=False)["销量(吨)"]
+            .sum()
+            .sort_values("销量(吨)", ascending=False)
+        )
+        sales_total = float(sales_share["销量(吨)"].sum())
+        sales_total_val = sales_total or 1
+        sales_share["占比"] = (sales_share["销量(吨)"] / sales_total_val * 100).round(2)
+        sales_share["标签"] = (
+            sales_share["所属煤矿"]
+            + "<br>"
+            + sales_share["销量(吨)"].round(0).astype(int).astype(str)
+            + "吨"
+            + "<br>"
+            + sales_share["占比"].astype(str)
+            + "%"
+        )
+        sales_pie_fig = go.Figure(
+            data=[
+                go.Pie(
+                    labels=sales_share["所属煤矿"],
+                    values=sales_share["销量(吨)"],
+                    text=sales_share["标签"],
+                    textinfo="text",
+                    textposition="outside",
+                    hovertemplate="%{label}<br>销量: %{value:.2f} 吨<br>占比: %{percent}<extra></extra>",
+                    automargin=True,
+                    domain=dict(x=[0.04, 0.70], y=[0.06, 0.78]),
+                    textfont=_chart_font_kw(),
+                    outsidetextfont=_chart_font_kw(),
+                    insidetextfont=_chart_font_kw(),
+                )
+            ]
+        )
+        sales_pie_fig.update_layout(
+            font=_chart_font_kw(size=12),
+            margin=dict(l=40, r=120, t=56, b=44),
+            legend_title_text="煤矿",
+            legend=dict(
+                x=1, xref="paper", xanchor="left",
+                y=0.52, yref="paper", yanchor="middle",
+                itemwidth=30, tracegroupgap=2,
+                bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)", borderwidth=0,
+                font=_chart_font_kw(size=12),
+                title=dict(font=_chart_font_kw(size=12)),
+            ),
+            dragmode=False,
+            colorway=list(_PLOT_COLORWAY),
+        )
+        sales_pie_fig.add_annotation(
+            text=f"实际总销量：<b>{sales_total:.2f}</b> 吨",
+            xref="paper", yref="paper",
+            x=0, y=1.015, xanchor="left", yanchor="top",
+            showarrow=False, font=_chart_font_kw(size=12),
+        )
+        _apply_cjk_axes(sales_pie_fig)
+
     rank_df = share_df.copy()
     rank_df["标签"] = rank_df["产量(吨)"].round(0).astype(int).astype(str) + "吨"
-    bar_fig = go.Figure(
-        data=[
+    bar_fig = go.Figure()
+    bar_fig.add_trace(
+        go.Bar(
+            name="产量",
+            x=rank_df["所属煤矿"],
+            y=rank_df["产量(吨)"],
+            text=rank_df["标签"],
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate="%{x}<br>产量: %{y:.2f} 吨<extra></extra>",
+            textfont=_chart_font_kw(),
+        )
+    )
+    # 销量柱（如果区间内有销量数据则并排展示）
+    if not sales_period_df.empty and sales_period_df["销量(吨)"].sum() > 0:
+        sales_bar = (
+            sales_period_df.groupby("所属煤矿", as_index=False)["销量(吨)"]
+            .sum()
+        )
+        sales_bar["标签"] = sales_bar["销量(吨)"].round(0).astype(int).astype(str) + "吨"
+        bar_fig.add_trace(
             go.Bar(
-                x=rank_df["所属煤矿"],
-                y=rank_df["产量(吨)"],
-                text=rank_df["标签"],
+                name="销量",
+                x=sales_bar["所属煤矿"],
+                y=sales_bar["销量(吨)"],
+                text=sales_bar["标签"],
                 textposition="outside",
                 cliponaxis=False,
-                hovertemplate="%{x}<br>产量: %{y:.2f} 吨<extra></extra>",
+                hovertemplate="%{x}<br>销量: %{y:.2f} 吨<extra></extra>",
                 textfont=_chart_font_kw(),
             )
-        ]
-    )
+        )
     bar_fig.update_layout(
         font=_chart_font_kw(size=12),
         xaxis_title="煤矿",
-        yaxis_title="产量(吨)",
+        yaxis_title="产量/销量(吨)",
         margin=dict(l=20, r=20, t=20, b=20),
+        barmode="group",
         colorway=list(_PLOT_COLORWAY),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom", y=1.02,
+            xanchor="center", x=0.5,
+            font=_chart_font_kw(size=12),
+            bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)", borderwidth=0,
+        ),
     )
-    bar_fig.update_traces(width=0.4)
+    bar_fig.update_traces(width=0.35)
     _lock_axes(bar_fig)
     _apply_cjk_axes(bar_fig)
 
@@ -536,6 +672,79 @@ def build_summary_and_charts(
         _apply_cjk_axes(trend_fig)
         _lock_axes(trend_fig)
 
+    # ── 销量趋势折线图 ──
+    if sales_period_df.empty:
+        sales_trend_fig = go.Figure()
+        sales_trend_fig.update_layout(font=_chart_font_kw(size=12))
+        sales_trend_fig.add_annotation(
+            text="当前区间暂无销量数据",
+            x=0.5, y=0.5, showarrow=False,
+            font=_chart_font_kw(size=14),
+        )
+        _lock_axes(sales_trend_fig)
+    else:
+        sales_weekly = (
+            sales_period_df.groupby(["周结束日期", "所属煤矿"], as_index=False)["销量(吨)"]
+            .sum()
+            .sort_values("周结束日期")
+        )
+        sales_pivot = sales_weekly.pivot(
+            index="周结束日期", columns="所属煤矿", values="销量(吨)"
+        ).fillna(0)
+        sales_pivot.index = pd.to_datetime(sales_pivot.index)
+        sales_pivot = sales_pivot.sort_index()
+        sales_ts = pd.DatetimeIndex(sales_pivot.index)
+        sales_years = sales_ts.year
+        sales_tickfmt = "%Y-%m-%d" if sales_years.min() != sales_years.max() else "%m-%d"
+        sales_span = max(1, (sales_ts.max().date() - sales_ts.min().date()).days + 1)
+        sales_show_text = sales_span <= 60
+        sales_scatter_mode = "lines+markers+text" if sales_show_text else "lines+markers"
+        sales_trend_fig = go.Figure()
+        for mine_name in sales_pivot.columns:
+            s = sales_pivot[mine_name]
+            xs = sales_ts.tolist()
+            ys = s.values.astype(float)
+            text_vals = [f"{float(v):.1f}" for v in ys]
+            sales_trend_fig.add_trace(
+                go.Scatter(
+                    x=xs,
+                    y=ys,
+                    name=mine_name,
+                    mode=sales_scatter_mode,
+                    text=text_vals if sales_show_text else None,
+                    textposition="top center",
+                    textfont=_chart_font_kw(size=9),
+                    line=dict(width=2.4),
+                    marker=dict(size=6),
+                    hovertemplate="%{x|%Y-%m-%d}<br>%{fullData.name}: %{y:.2f} 吨<extra></extra>",
+                )
+            )
+        sales_trend_fig.update_layout(
+            font=_chart_font_kw(size=12),
+            xaxis_title="周结束日期",
+            yaxis_title="销量(吨)",
+            margin=dict(l=20, r=24, t=24, b=56),
+            legend_title_text="煤矿",
+            legend=dict(
+                orientation="v",
+                yanchor="top", y=1,
+                xanchor="left", x=1.02,
+                font=_chart_font_kw(size=12),
+                title=dict(font=_chart_font_kw(size=12)),
+            ),
+            colorway=list(_PLOT_COLORWAY),
+            xaxis=dict(automargin=True),
+        )
+        sales_trend_fig.update_xaxes(
+            type="date",
+            tickformat=sales_tickfmt,
+            nticks=min(18, max(8, sales_span // 7)),
+            tickangle=-30,
+            ticklabelstandoff=4,
+        )
+        _apply_cjk_axes(sales_trend_fig)
+        _lock_axes(sales_trend_fig)
+
     out: dict[str, Any] = {
         "empty": False,
         "summary_html": table_html,
@@ -545,6 +754,8 @@ def build_summary_and_charts(
         "pie_html": _fig_to_html(pie_fig),
         "bar_html": _fig_to_html(bar_fig),
         "trend_html": _fig_to_html(trend_fig),
+        "sales_pie_html": _fig_to_html(sales_pie_fig),
+        "sales_trend_html": _fig_to_html(sales_trend_fig),
         **period_meta,
     }
     if include_export_figures:
@@ -555,5 +766,7 @@ def build_summary_and_charts(
             "pie_figure": pie_fig,
             "bar_figure": bar_fig,
             "trend_figure": trend_fig,
+            "sales_pie_figure": sales_pie_fig,
+            "sales_trend_figure": sales_trend_fig,
         }
     return out

@@ -32,5 +32,36 @@
       </form>
     </div>
   </div>
+
+  <div class="card" style="margin-top:1.5rem;background:var(--c-bg-soft);">
+    <h3>周报表</h3>
+    <p class="muted">按周区间（周六至周五）汇总各矿原煤生产量与自产煤销售量，生成吨表和万吨表。</p>
+    <form method="post" action="/reports/weekly" data-loading data-no-global-busy style="max-width:360px;">
+      <label for="d3">周末日期（周五）</label>
+      <input type="date" id="d3" name="target_date" value="{{ default_week_end }}" required />
+      <button type="submit" class="btn btn-primary inline" style="margin-top:0.7rem;">生成并下载</button>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;background:var(--c-bg-soft);">
+    <h3>产销量简报</h3>
+    <p class="muted">生成文本格式的产销量简报，可直接复制粘贴到微信群等。</p>
+    <form method="post" action="/reports/brief" data-loading data-no-global-busy style="max-width:360px;">
+      <label for="d4">数据所属日期</label>
+      <input type="date" id="d4" name="target_date" value="{{ default_date.isoformat() }}" required />
+      <button type="submit" class="btn btn-primary inline" style="margin-top:0.7rem;">生成简报</button>
+    </form>
+    {% if brief_text %}
+    <div style="margin-top:1.2rem;">
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;">
+        <strong>简报内容</strong>
+        <button type="button" class="btn btn-sm" onclick="
+          navigator.clipboard.writeText(document.getElementById('briefArea').value).then(function(){var b=this;b.textContent='已复制';setTimeout(function(){b.textContent='复制'},1500)}.bind(this));
+        ">复制</button>
+      </div>
+      <textarea id="briefArea" readonly rows="20" style="width:100%;font-family:inherit;font-size:0.95rem;line-height:1.7;resize:vertical;white-space:pre-wrap;">{{ brief_text }}</textarea>
+    </div>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}
