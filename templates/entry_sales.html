@@ -68,7 +68,7 @@
     var y = d.getFullYear();
     var m = String(d.getMonth() + 1).padStart(2, "0");
     var day = String(d.getDate()).padStart(2, "0");
-    rangeDisplay.textContent = "本周区间：" + y + "-" + m + "-" + day + " 至 " + val + "（最终以系统计算为准）";
+    rangeDisplay.textContent = "本周区间：" + y + "-" + m + "-" + day + " 至 " + val;
   }
   if (weekEndInput) weekEndInput.addEventListener("change", updateRange);
 })();

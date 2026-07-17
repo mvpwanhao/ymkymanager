@@ -12,7 +12,7 @@
 {% block content %}
 <div class="card">
   <h1>数据可视化</h1>
-  <p class="muted">统计口径与报表/简报完全一致：产量按生产日期汇总，销量按周结束日期汇总；G/H 为混合累计（存储基数+后续F），I/J 从"合计"记录回退取值，K=H+I。能源局数据为昨日填报数据。</p>
+  <p class="muted">产量按生产日期汇总，销量按周结束日期汇总。能源局数据为昨日填报数据。</p>
 
   <div class="viz-toolbar" style="display:flex;justify-content:space-between;align-items:flex-end;gap:0.85rem;flex-wrap:wrap;margin-bottom:0.6rem;">
     <div class="pill-tabs" role="tablist" aria-label="统计区间">
@@ -627,7 +627,7 @@
       .then(function(data) { if (data.error) throw new Error(data.error); renderAll(data); })
       .catch(function(err) {
         document.getElementById("viz-loading").innerHTML =
-          '<p style="color:#dc2626;">加载失败: ' + err.message + "</p>";
+          '<p style="color:#dc2626;">数据加载失败，请稍后重试。</p>';
       });
   }
 
@@ -694,7 +694,7 @@
             setTimeout(function() { URL.revokeObjectURL(url); dl.remove(); }, 4000);
           });
         })
-        .catch(function(e) { window.alert("导出失败：" + String(e || "unknown")); })
+        .catch(function(e) { window.alert("导出失败，请稍后重试。"); })
         .finally(function() { exportBtn.removeAttribute("aria-busy"); });
     });
   }
