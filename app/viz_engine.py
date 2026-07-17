@@ -393,11 +393,11 @@ def build_viz_data(
         m_energy_prod = 0.0
         m_energy_sales = 0.0
         for mine_key, val in energy_yest_prod.items():
-            if mine_key.startswith(prefix, na=False):
+            if mine_key.startswith(prefix):
                 m_energy_prod = val
                 break
         for mine_key, val in energy_yest_sales.items():
-            if mine_key.startswith(prefix, na=False):
+            if mine_key.startswith(prefix):
                 m_energy_sales = val
                 break
 

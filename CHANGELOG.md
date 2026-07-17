@@ -4,6 +4,12 @@
 
 **约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
 
+## [1.4.1] - 2026-07-17
+
+### 修复
+
+- **数据可视化模块 HTTP 500**：`app/viz_engine.py` 中 `energy_yest_prod`/`energy_yest_sales` 字典的键是普通 Python 字符串，但错误地使用了 `str.startswith(prefix, na=False)`。`na=False` 是 pandas `Series.str.startswith()` 的参数，Python 原生 `str.startswith()` 不接受该参数，导致调用 `build_viz_data()` 时抛出 `TypeError`。已改为 `mine_key.startswith(prefix)`。
+
 ## [1.4.0] - 2026-07-17
 
 ### 新增
