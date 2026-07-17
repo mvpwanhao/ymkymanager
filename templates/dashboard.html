@@ -268,8 +268,10 @@
         splitLine: { lineStyle: { color: getGridColor() } }
       },
       series: [
-        { name: prodLabel, type: "bar", data: periodProd, barGap: "10%", itemStyle: { borderRadius: [4, 4, 0, 0] } },
-        { name: "年累计产量", type: "bar", data: yearProd, itemStyle: { borderRadius: [4, 4, 0, 0] } }
+        { name: prodLabel, type: "bar", data: periodProd, barGap: "10%", itemStyle: { borderRadius: [4, 4, 0, 0] },
+          label: { show: true, position: "top", color: getTextColor(), fontSize: 11, formatter: function(p) { return fmtNum(p.value); } } },
+        { name: "年累计产量", type: "bar", data: yearProd, itemStyle: { borderRadius: [4, 4, 0, 0] },
+          label: { show: true, position: "top", color: getTextColor(), fontSize: 11, formatter: function(p) { return fmtNum(p.value); } } }
       ]
     });
   }
@@ -310,9 +312,12 @@
         splitLine: { lineStyle: { color: getGridColor() } }
       },
       series: [
-        { name: "周销量", type: "bar", data: weekSales, itemStyle: { borderRadius: [4, 4, 0, 0] } },
-        { name: "月累计销量", type: "bar", data: monthSales, itemStyle: { borderRadius: [4, 4, 0, 0] } },
-        { name: "年累计销量", type: "bar", data: yearSales, itemStyle: { borderRadius: [4, 4, 0, 0] } }
+        { name: "周销量", type: "bar", data: weekSales, itemStyle: { borderRadius: [4, 4, 0, 0] },
+          label: { show: true, position: "top", color: getTextColor(), fontSize: 11, formatter: function(p) { return fmtNum(p.value); } } },
+        { name: "月累计销量", type: "bar", data: monthSales, itemStyle: { borderRadius: [4, 4, 0, 0] },
+          label: { show: true, position: "top", color: getTextColor(), fontSize: 11, formatter: function(p) { return fmtNum(p.value); } } },
+        { name: "年累计销量", type: "bar", data: yearSales, itemStyle: { borderRadius: [4, 4, 0, 0] },
+          label: { show: true, position: "top", color: getTextColor(), fontSize: 11, formatter: function(p) { return fmtNum(p.value); } } }
       ]
     });
   }
