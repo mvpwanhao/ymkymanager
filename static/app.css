@@ -1293,6 +1293,19 @@ table.data-table {
     grid-auto-flow: dense;
     gap: 0.9rem;
   }
+  .kpi-card--emphasis { grid-column: span 2; }
+}
+.kpi-card--emphasis {
+  background: var(--c-brand-50);
+  border-color: var(--c-brand-200);
+  box-shadow: var(--shadow-3);
+}
+.kpi-card--emphasis::after {
+  height: 4px;
+  opacity: 1;
+}
+.kpi-card--emphasis .kpi-value {
+  font-size: 1.35em;
 }
 .kpi-card {
   position: relative;

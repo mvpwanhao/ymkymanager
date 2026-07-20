@@ -185,6 +185,7 @@
     for (var i = 0; i < kpis.length; i++) {
       var k = kpis[i];
       var cls = "kpi-card";
+      if (i === 0 || i === 1) cls += " kpi-card--emphasis";
       html += '<div class="' + cls + '">'
         + '<div class="kpi-label">' + k.label + '</div>'
         + '<div class="kpi-value">' + fmtNum(k.value) + '<span class="kpi-unit">' + k.unit + '</span></div>'
