@@ -13,12 +13,13 @@
   <form method="post" action="/entry/sales/submit" class="form-grid cols-2" data-loading>
     <div>
       <label for="mine">煤矿名称</label>
-      <select id="mine" name="mine" required>
-        <option value="">— 请选择 —</option>
+      <select id="mine" name="mine">
+        <option value="">— 可不选 —</option>
         {% for m in mines %}
         <option value="{{ m }}">{{ m }}</option>
         {% endfor %}
       </select>
+      <small class="muted" style="display:block;margin-top:0.25rem;">不选煤矿时仅更新年累计掺配煤/外购煤量。</small>
     </div>
     <div>
       <label for="week_end">周末日期（周五）</label>

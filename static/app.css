@@ -6,6 +6,7 @@
  */
 
 :root {
+  color-scheme: light;
   --c-brand-50:  #eff6ff;
   --c-brand-100: #dbeafe;
   --c-brand-200: #bfdbfe;
@@ -1282,6 +1283,7 @@ table.data-table {
   gap: 0.7rem;
   margin-bottom: 1.1rem;
 }
+.kpi-card--emphasis { grid-column: 1 / -1; }
 @media (min-width: 600px)  {
   .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
 }
@@ -1291,7 +1293,6 @@ table.data-table {
     grid-auto-flow: dense;
     gap: 0.9rem;
   }
-  .kpi-card--emphasis { grid-column: span 2; }
 }
 .kpi-card {
   position: relative;

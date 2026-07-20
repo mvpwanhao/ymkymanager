@@ -373,6 +373,10 @@ def generate_weekly_report(target_date) -> tuple[str | None, str]:
 
         # ── 填充吨表 ──
         ws_ton = wb["吨表"]
+        # 清空 I5:J10（各矿行的公司级数据列，仅合计行填写）
+        for _r in range(5, 11):
+            ws_ton.cell(row=_r, column=9, value=None)
+            ws_ton.cell(row=_r, column=10, value=None)
         ws_ton["A2"] = f"{date_range_str}                                                                                             单位：吨"
         for ledger_prefix, row, canonical in WEEKSHEET_DATA_ROWS:
             md = mine_data[canonical]
@@ -382,8 +386,7 @@ def generate_weekly_report(target_date) -> tuple[str | None, str]:
             _set_cell_num(ws_ton, row, 6, md["f"], decimals=2)   # F: 每周销量
             _set_cell_num(ws_ton, row, 7, md["g"], decimals=2)   # G: 月累计销量
             _set_cell_num(ws_ton, row, 8, md["h"], decimals=2)   # H: 年累计销量
-            _set_cell_num(ws_ton, row, 9, md["i"], decimals=2)   # I: 年累计掺配煤
-            _set_cell_num(ws_ton, row, 10, md["j"], decimals=2)  # J: 年累计外购煤
+            # I/J 各矿行留空（公司级数据，仅合计行填写）
 
         # 吨表合计行：C-H 列直接计算写入；I11/J11 从"合计"记录取（无则求和各矿）
         for col in range(3, 9):
@@ -414,6 +417,10 @@ def generate_weekly_report(target_date) -> tuple[str | None, str]:
 
         # ── 填充万吨表 ──
         ws_wan = wb["万吨表"]
+        # 清空 I5:J10（各矿行的公司级数据列，仅合计行填写）
+        for _r in range(5, 11):
+            ws_wan.cell(row=_r, column=9, value=None)
+            ws_wan.cell(row=_r, column=10, value=None)
         ws_wan["A2"] = f"{date_range_str}                                                                                             单位：万吨"
         for ledger_prefix, row, canonical in WEEKSHEET_DATA_ROWS:
             md = mine_data[canonical]
@@ -423,8 +430,7 @@ def generate_weekly_report(target_date) -> tuple[str | None, str]:
             _set_cell_num(ws_wan, row, 6, md["f"] / 10000, decimals=1)
             _set_cell_num(ws_wan, row, 7, md["g"] / 10000, decimals=1)
             _set_cell_num(ws_wan, row, 8, md["h"] / 10000, decimals=1)
-            _set_cell_num(ws_wan, row, 9, md["i"] / 10000, decimals=1)
-            _set_cell_num(ws_wan, row, 10, md["j"] / 10000, decimals=1)
+            # I/J 各矿行留空（公司级数据，仅合计行填写）
 
         # 万吨表合计行：C-H 列直接计算写入；I11/J11 从"合计"记录取
         for col in range(3, 9):
@@ -469,11 +475,12 @@ def generate_brief_report(target_date) -> tuple[str | None, str]:
         month_start, month_end = get_26day_month_range(target_dt)
         year_start, _ = get_26day_year_range(target_dt)
 
-        # ── 确定周序号 ──
-        all_weeks = enumerate_weekly_ranges(month_start, month_end)
+        # ── 确定周序号（基于日历月，从1日起算）──
+        cal_month_start = date(month_end.year, month_end.month, 1)
+        all_weeks = enumerate_weekly_ranges(cal_month_start, month_end)
         week_num = 1
         for i, (ws, we) in enumerate(all_weeks, 1):
-            if ws == week_start and we == week_end:
+            if ws <= target_dt <= we:
                 week_num = i
                 break
 
@@ -621,23 +628,23 @@ def generate_brief_report(target_date) -> tuple[str | None, str]:
         lines: list[str] = []
         lines.append(f"云煤矿业公司{year_val}年生产销售情况汇报：")
         lines.append(
-            f"{stat_month}月第{week_num}周（{_md(week_start)}至{_md(week_end)}）生产量：{week_prod:,.0f}吨"
+            f"{stat_month}月第{week_num}周（{_md(week_start)}至{_md(week_end)}）生产量：{week_prod:.2f}吨"
         )
         lines.append(
-            f"{stat_month}月（{_md(month_start)}至{_md(week_end)}）累计生产量：{month_prod:,.0f}吨"
+            f"{stat_month}月（{_md(month_start)}至{_md(week_end)}）累计生产量：{month_prod:.2f}吨"
         )
-        lines.append(f"年累计总生产量：{year_prod:,.0f}吨")
-        wow_str = f"{wow_delta:+,.0f}" if wow_delta != 0 else "0"
+        lines.append(f"年累计总生产量：{year_prod:.2f}吨")
+        wow_str = f"{wow_delta:+.2f}" if wow_delta != 0 else "0.00"
         lines.append(f"环比上周增量：{wow_str}吨")
         lines.append("－－－－－－－－－－－－－")
         lines.append(
-            f"{stat_month}月第{week_num}周（{_md(week_start)}至{_md(week_end)}）自产煤销售量：{week_sales:,.0f}吨"
+            f"{stat_month}月第{week_num}周（{_md(week_start)}至{_md(week_end)}）自产煤销售量：{week_sales:.2f}吨"
         )
-        lines.append(f"{stat_month}月累计自产煤销售量：{month_sales:,.0f}吨")
-        lines.append(f"年累计自产煤销售量：{year_sales:,.0f}吨")
-        lines.append(f"年累计掺配煤销售量：{blended_sales:,.0f}吨")
-        lines.append(f"年累计外购煤量：{purchased_coal:,.0f}吨")
-        lines.append(f"年合计销售煤量：{total_sales:,.0f}吨")
+        lines.append(f"{stat_month}月累计自产煤销售量：{month_sales:.2f}吨")
+        lines.append(f"年累计自产煤销售量：{year_sales:.2f}吨")
+        lines.append(f"年累计掺配煤销售量：{blended_sales:.2f}吨")
+        lines.append(f"年累计外购煤量：{purchased_coal:.2f}吨")
+        lines.append(f"年合计销售煤量：{total_sales:.2f}吨")
         lines.append("－－－－－－－－－－－－－－")
         lines.append(f"{year_val}年累计生产量：")
         mine_labels = {
@@ -650,7 +657,7 @@ def generate_brief_report(target_date) -> tuple[str | None, str]:
         }
         for i, (prefix, val) in enumerate(mine_yearly, 1):
             label = mine_labels.get(prefix, prefix)
-            lines.append(f"   {i}、{label} {val / 10000:,.1f}万吨；")
+            lines.append(f"   {i}、{label} {val / 10000:.2f}万吨；")
 
         brief_text = "\n".join(lines)
         return brief_text, "产销量简报生成成功"

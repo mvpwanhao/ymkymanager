@@ -276,9 +276,19 @@ def submit_sales(
         return RedirectResponse("/login", status_code=303)
     if action == "logout":
         return RedirectResponse("/logout", status_code=303)
+    def _parse_float(val: str) -> float:
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return 0.0
+
+    # 不选煤矿时，仅允许填报年累计掺配煤销量/外购煤量
     if not mine:
-        request.session["form_error"] = "请选择煤矿"
-        return RedirectResponse("/go/entry_sales", status_code=303)
+        _b = _parse_float(year_blended)
+        _p = _parse_float(year_purchased)
+        if _b == 0.0 and _p == 0.0:
+            request.session["form_error"] = "请选择煤矿，或填写年累计掺配煤销量/外购煤量"
+            return RedirectResponse("/go/entry_sales", status_code=303)
     try:
         we_dt = date.fromisoformat(week_end)
     except (ValueError, TypeError):
@@ -287,28 +297,25 @@ def submit_sales(
     ws_dt, we_dt = get_weekly_range(we_dt)
     week_start_iso = ws_dt.strftime("%Y-%m-%d")
     week_end_iso = we_dt.strftime("%Y-%m-%d")
-    try:
-        sales_f = float(sales)
-    except (TypeError, ValueError):
+    if mine:
+        try:
+            sales_f = float(sales)
+        except (TypeError, ValueError):
+            sales_f = 0.0
+        if sales_f == 0.0 and not str(note).strip():
+            request.session["form_error"] = "销量为 0 时须填备注"
+            return RedirectResponse("/go/entry_sales", status_code=303)
+    else:
         sales_f = 0.0
-    if sales_f == 0.0 and not str(note).strip():
-        request.session["form_error"] = "销量为 0 时须填备注"
-        return RedirectResponse("/go/entry_sales", status_code=303)
     rep_input = (reporter or "").strip()
     who = rep_input or "管理员"
-
-    def _parse_float(val: str) -> float:
-        try:
-            return float(val)
-        except (TypeError, ValueError):
-            return 0.0
 
     sales_path = get_settings().actual_sales_path
     blended_f = _parse_float(year_blended)
     purchased_f = _parse_float(year_purchased)
 
-    # I/J 为 0 或空时，沿用最近一期"合计"记录的值（保持不变）
-    if blended_f == 0.0 or purchased_f == 0.0:
+    # I/J 为 0 或空时，沿用最近一期"合计"记录的值（仅在选择煤矿时）
+    if mine and (blended_f == 0.0 or purchased_f == 0.0):
         _existing_df = read_records(sales_path)
         if not _existing_df.empty:
             _existing_df["_we"] = pd.to_datetime(
@@ -333,63 +340,66 @@ def submit_sales(
                         )
                         purchased_f = float(_v) if pd.notna(_v) else 0.0
 
-    new_data = dataframe_actual_sales_new_row(
-        submit_time=now_str(),
-        mine=mine,
-        week_start=week_start_iso,
-        week_end=week_end_iso,
-        sales_t=sales_f,
-        reporter=who,
-        note=note,
-        year_blended=blended_f,
-        year_purchased=purchased_f,
-    )
+    if mine:
+        new_data = dataframe_actual_sales_new_row(
+            submit_time=now_str(),
+            mine=mine,
+            week_start=week_start_iso,
+            week_end=week_end_iso,
+            sales_t=sales_f,
+            reporter=who,
+            note=note,
+            year_blended=blended_f,
+            year_purchased=purchased_f,
+        )
 
-    if confirm not in ("append", "replace"):
-        existing = find_sales_records_by_mine_week(sales_path, mine, week_start_iso, week_end_iso)
-        if not existing.empty:
-            return render_duplicate_confirmation(
-                request,
-                request.app.state.templates,
-                kind="sales",
-                mine=mine,
-                prod_date_iso=f"{week_start_iso} 至 {week_end_iso}",
-                existing_df=existing,
-                pending_df=new_data,
-                form_fields={
-                    "mine": mine,
-                    "week_end": week_end_iso,
-                    "sales": str(sales_f),
-                    "reporter": who,
-                    "note": note,
-                    "year_blended": str(blended_f),
-                    "year_purchased": str(purchased_f),
-                },
+        if confirm not in ("append", "replace"):
+            existing = find_sales_records_by_mine_week(sales_path, mine, week_start_iso, week_end_iso)
+            if not existing.empty:
+                return render_duplicate_confirmation(
+                    request,
+                    request.app.state.templates,
+                    kind="sales",
+                    mine=mine,
+                    prod_date_iso=f"{week_start_iso} 至 {week_end_iso}",
+                    existing_df=existing,
+                    pending_df=new_data,
+                    form_fields={
+                        "mine": mine,
+                        "week_end": week_end_iso,
+                        "sales": str(sales_f),
+                        "reporter": who,
+                        "note": note,
+                        "year_blended": str(blended_f),
+                        "year_purchased": str(purchased_f),
+                    },
+                )
+
+        ymky_log = logging.getLogger("ymky")
+        if confirm == "replace":
+            removed = safe_replace_sales(sales_path, mine, week_start_iso, week_end_iso, new_data)
+            save_msg = f"已覆盖：删除旧记录 {removed} 条，写入新记录 1 条"
+        else:
+            safe_append(new_data, sales_path)
+            save_msg = "提交成功" if confirm != "append" else "已追加（保留旧记录）"
+
+        if not verify_sales_submission_visible(sales_path, mine, week_start_iso, week_end_iso, sales_f):
+            ymky_log.error(
+                "实际销量台账写入后校验失败 path=%s mine=%s week=%s~%s sales=%s db=%s",
+                sales_path,
+                mine,
+                week_start_iso,
+                week_end_iso,
+                sales_f,
+                storage_uses_database(),
             )
-
-    ymky_log = logging.getLogger("ymky")
-    if confirm == "replace":
-        removed = safe_replace_sales(sales_path, mine, week_start_iso, week_end_iso, new_data)
-        save_msg = f"已覆盖：删除旧记录 {removed} 条，写入新记录 1 条"
+            request.session["form_error"] = (
+                "保存后校验未通过：未能在台账中查到与本次一致的销量记录，本次可能未成功保存。"
+                "请勿以为已提交成功，请重试或联系管理员。"
+            )
+            return RedirectResponse("/go/entry_sales", status_code=303)
     else:
-        safe_append(new_data, sales_path)
-        save_msg = "提交成功" if confirm != "append" else "已追加（保留旧记录）"
-
-    if not verify_sales_submission_visible(sales_path, mine, week_start_iso, week_end_iso, sales_f):
-        ymky_log.error(
-            "实际销量台账写入后校验失败 path=%s mine=%s week=%s~%s sales=%s db=%s",
-            sales_path,
-            mine,
-            week_start_iso,
-            week_end_iso,
-            sales_f,
-            storage_uses_database(),
-        )
-        request.session["form_error"] = (
-            "保存后校验未通过：未能在台账中查到与本次一致的销量记录，本次可能未成功保存。"
-            "请勿以为已提交成功，请重试或联系管理员。"
-        )
-        return RedirectResponse("/go/entry_sales", status_code=303)
+        save_msg = "年累计掺配煤销量/外购煤量已更新"
 
     # 同步更新/创建"合计"记录的 I/J 值（确保简报和周报表能取到当前周累计值）
     _totals_lock = FileLock(sales_path + ".lock")
