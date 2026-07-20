@@ -3,7 +3,7 @@
 > 面向煤矿产销业务的轻量级 Web 平台。支持双通道填报、可追溯台账、统计可视化、报表导出与运维巡检，专为云南云煤矿业内部业务场景设计。
 
 仓库：[gitee.com/mvpwanhao/ykmymanager](https://gitee.com/mvpwanhao/ykmymanager)  
-当前版本：**1.3.1**（见 VERSION，/health 默认返回 v + 该号）  
+当前版本：**1.4.5**（见 VERSION，/health 默认返回 v + 该号）  
 变更记录：CHANGELOG.md
 
 ---
@@ -29,9 +29,10 @@
 ### 业务功能
 
 - **双通道填报**：实际产量 / 能源局口径产销量；同矿同日重复时支持「追加」或「覆盖」确认页
-- **历史台账**：管理员可在线维护；可视化角色只读；按提交/报送时间倒序；各矿「今日是否已报」状态指示
-- **数据可视化**：年度 / 月度 / 自定义区间；Plotly 饼图、柱状图、折线图；可导出含图表 PNG 的 Excel
-- **报表生成**：实际产量统计（sjcl1.xlsx 模板）、能源局日报（nybb.xlsx 模板），输出至 data/exports/
+- **实际销量填报**：按周填报各矿实际销量；不选煤矿时可单独更新年累计掺配煤/外购煤；重复填报可选择追加或覆盖
+- **历史台账**：管理员可在线编辑；可视化角色只读；按提交/报送时间倒序；各矿「今日是否已报」状态指示；列宽可拖拽调整
+- **数据可视化**：年度 / 月度 / 自定义区间；ECharts 客户端渲染（饼图、柱状图、折线图）；KPI 概览 + 矿明细表 + Excel 导出
+- **报表生成**：实际产量统计（sjcl1.xlsx）、能源局日报（nybb.xlsx）、周报表（weeksheet.xlsx，吨表+万吨表）、产销量简报（文本格式，可粘贴微信群）
 - **微信告警**（可选）：服务异常时通过 Server酱推送（仅在 5xx 错误、未处理异常、健康检查失败时触发）
 - **运维工具**：/health、/health/diag（库连接、表行数、待同步标记）；管理员「系统日志」页查看最近 500 行日志
 
@@ -39,7 +40,7 @@
 
 - **默认**：data/*.xlsx 台账 + 文件锁，适合单机与小规模部署
 - **可选 PostgreSQL**：配置 DATABASE_URL 后读写数据库；连接失败时写入本地 Excel 缓冲，恢复后自动回同步库（顶栏黄色断线提示）
-- **报表模板**：sjcl1.xlsx（实际产量报表与日计划）、nybb.xlsx（能源局日报）——需存在于 data/ 目录
+- **报表模板**：sjcl1.xlsx（实际产量报表与日计划）、nybb.xlsx（能源局日报）、weeksheet.xlsx（周报表，吨表+万吨表）——需存在于 data/ 目录
 
 ---
 
@@ -52,7 +53,7 @@
 | 模板引擎 | Jinja2 | ≥ 3.1.0 |
 | 会话管理 | itsdangerous | ≥ 2.1.0 |
 | 数据处理 | pandas + openpyxl | ≥ 2.0.0 / ≥ 3.1.0 |
-| 可视化 | Plotly + Kaleido | ≥ 5.18.0 / 0.2.x |
+| 可视化 | ECharts（客户端渲染） | ≥ 5.4.0 |
 | ORM（可选） | SQLAlchemy + psycopg2 | ≥ 2.0.0 / ≥ 2.9.0 |
 | HTTP 服务器 | Uvicorn | ≥ 0.27.0 |
 | 部署 | Docker Compose / systemd + venv | - |
@@ -64,28 +65,31 @@
 ```text
 ymky_manager/
 ├── app/                        # FastAPI 应用主体
-│   ├── main.py                 #    路由、生命周期、中间件
+│   ├── main.py                 #    路由注册、生命周期、中间件（115 行）
 │   ├── config.py               #    环境变量解析 (Pydantic Settings)
 │   ├── storage.py              #    Excel/PostgreSQL 双存储引擎
-│   ├── report_engine.py        #    报表生成 (sjcl / nybb)
-│   ├── visual_export.py        #    可视化图表导出
-│   ├── dashboard_data.py       #    仪表盘数据聚合
+│   ├── report_engine.py        #    报表生成（实际产量/能源局日报/周报表/简报）
+│   ├── viz_engine.py           #    可视化统计引擎（ECharts 数据聚合）
+│   ├── helpers.py              #    共享辅助函数
+│   ├── utils.py                #    工具函数（exclude_mines 等）
 │   ├── constants.py            #    矿区、角色等常量
-│   ├── timeutil.py             #    时间工具
+│   ├── timeutil.py             #    时间工具（26 日制、周区间计算）
 │   ├── release_version.py      #    版本号读取
-│   ├── middleware_production.py #    生产环境安全中间件
+│   ├── routes/                 #    路由模块（health/auth/entry/report/viz/admin/pages）
 │   ├── auth/                   #    身份验证与会话管理
 │   └── services/
 │       └── notify.py           #    Server酱异常告警推送
-├── templates/                  # Jinja2 页面模板 (14 个)
-├── static/                     # CSS / JS / Plotly 主题 / logo
+├── templates/                  # Jinja2 页面模板 (17 个)
+├── static/                     # CSS / JS / logo
 ├── data/                       # 台账 Excel、模板、导出、运行时与日志
 ├── scripts/                    # 开发、发版、部署、迁移脚本
+├── tests/                      # 单元测试（pytest，46 个）
 ├── docs/                       # 部署、Docker、内网穿透说明
 ├── docker/                     # Docker 构建配置 (fontconfig)
 ├── docker-compose.yml          # 多容器编排（含穿透 profile）
 ├── Dockerfile                  # 生产镜像定义
 ├── requirements.txt            # Python 依赖
+├── requirements-dev.txt        # 开发依赖（pytest 等）
 ├── .env.example                # 环境变量示例
 ├── VERSION                     # 语义化版本号
 ├── CHANGELOG.md                # 发布变更记录
