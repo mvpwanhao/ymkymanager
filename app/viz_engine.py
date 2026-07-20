@@ -493,15 +493,12 @@ def build_viz_data(
 
     # ── KPI ──
     kpis = [
+        {"label": "年度实际原煤产量", "value": round(year_prod, 2), "unit": "吨"},
         {"label": "年累计自产煤销量", "value": round(year_sales, 2), "unit": "吨"},
         {"label": "月累计自产煤销量", "value": round(month_sales, 2), "unit": "吨"},
         {"label": "掺配煤年累计", "value": round(blended, 2), "unit": "吨"},
         {"label": "外购煤年累计", "value": round(purchased, 2), "unit": "吨"},
         {"label": "合计销售煤量", "value": round(total_sales_k, 2), "unit": "吨"},
-        {"label": "今日报能源局产量", "value": round(tot_energy_prod, 2), "unit": "吨"},
-        {"label": "今日报能源局销量", "value": round(tot_energy_sales, 2), "unit": "吨"},
-        {"label": f"报能源局{period_name}产量", "value": round(period_prod, 2), "unit": "吨"},
-        {"label": f"报能源局{period_name}销量", "value": round(period_sales, 2), "unit": "吨"},
     ]
 
     # ── 时间范围标签 ──

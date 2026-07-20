@@ -24,7 +24,7 @@ class TestBuildVizDataYear:
 
     def test_kpis_count(self):
         result = build_viz_data(period="year")
-        assert len(result["kpis"]) == 9
+        assert len(result["kpis"]) == 6
 
     def test_mine_details_not_empty(self):
         result = build_viz_data(period="year")
@@ -55,7 +55,7 @@ class TestBuildVizDataMonth:
 
     def test_kpis_count(self):
         result = build_viz_data(period="month")
-        assert len(result["kpis"]) == 9
+        assert len(result["kpis"]) == 6
 
 
 class TestBuildVizDataCustom:
