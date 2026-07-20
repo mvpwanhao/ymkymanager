@@ -1,4 +1,4 @@
-# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 # 本文件为「云煤矿业产销量管理系统」的组成部分。
 # 仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
 # 未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
@@ -28,8 +28,9 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
 from app.config import get_settings
-from app.constants import MINE_LIST, REMOVED_MINE_KEYWORDS
+from app.constants import MINE_LIST
 from app.storage import read_records
+from app.utils import exclude_mines
 from app.timeutil import (
     enumerate_weekly_ranges,
     get_26day_month_range,
@@ -59,17 +60,11 @@ VIZ_MINE_FULL_NAMES: dict[str, str] = {
 }
 
 
-def _exclude_mines(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty or "所属煤矿" not in df.columns:
-        return df
-    mask = ~df["所属煤矿"].astype(str).str.contains("|".join(REMOVED_MINE_KEYWORDS), na=False)
-    return df.loc[mask].copy()
-
 
 def _load_production_df() -> pd.DataFrame:
     """读取产量台账并做类型规范化。"""
     s = get_settings()
-    df = _exclude_mines(read_records(s.actual_production_path))
+    df = exclude_mines(read_records(s.actual_production_path))
     if df.empty:
         return pd.DataFrame()
     df = df.copy()
@@ -82,7 +77,7 @@ def _load_production_df() -> pd.DataFrame:
 def _load_energy_df() -> pd.DataFrame:
     """读取能源局产销量台账并做类型规范化。"""
     s = get_settings()
-    df = _exclude_mines(read_records(s.energy_reporting_path))
+    df = exclude_mines(read_records(s.energy_reporting_path))
     if df.empty or "生产日期" not in df.columns:
         return pd.DataFrame()
     df = df.copy()
@@ -117,7 +112,7 @@ def _load_sales_df() -> tuple[pd.DataFrame, pd.DataFrame]:
         df[_col] = pd.to_numeric(df[_col], errors="coerce").fillna(0)
     total_mask = df["所属煤矿"] == "合计"
     sales_totals_df = df[total_mask].copy()
-    sales_df = _exclude_mines(df[~total_mask])
+    sales_df = exclude_mines(df[~total_mask])
     return sales_df, sales_totals_df
 
 

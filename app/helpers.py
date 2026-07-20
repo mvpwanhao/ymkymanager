@@ -1,10 +1,11 @@
-# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 """模块级辅助函数（从 main.py 闭包中提取）。"""
 
 from __future__ import annotations
 
 import hashlib
 import logging
+from functools import lru_cache
 from datetime import date, datetime
 from typing import Any
 
@@ -58,6 +59,7 @@ def coerce_ledger_value(col: str, raw: str) -> Any:
     return s
 
 
+@lru_cache(maxsize=1)
 def compute_asset_version() -> str:
     """基于静态文件 mtime 生成缓存版本号。"""
     h = hashlib.sha1()

@@ -1,4 +1,4 @@
-# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 # 本文件为「云煤矿业产销量管理系统」的组成部分。
 # 仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
 # 未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE.
@@ -26,7 +26,7 @@ from app.middleware_production import SecurityHeadersMiddleware, StaticCacheMidd
 from app.routes import admin, auth, entry, health, pages, report, viz
 from app.services.notify import notify_alert
 
-LOG_FILE = get_settings().data_dir / "ymky_system.log"
+LOG_FILE = get_settings().log_file
 
 _DEFAULT_SECRET_MARKER = "dev-change-me-please-use-yml-or-env-YMKY_SECRET_KEY"
 
@@ -61,6 +61,13 @@ async def lifespan(app: FastAPI):
     (s.data_dir / "exports").mkdir(exist_ok=True)
     if s.database_url.strip():
         os.environ["DATABASE_URL"] = s.database_url.strip()
+    # Export passwords for legacy direct os.environ readers.
+    if s.password_admin.strip():
+        os.environ["YMKY_PASSWORD_ADMIN"] = s.password_admin.strip()
+    if s.password_reporter.strip():
+        os.environ["YMKY_PASSWORD_REPORTER"] = s.password_reporter.strip()
+    if s.password_viewer.strip():
+        os.environ["YMKY_PASSWORD_VIEWER"] = s.password_viewer.strip()
     log = logging.getLogger("ymky")
     if s.is_production and _DEFAULT_SECRET_MARKER in s.secret_key:
         log.warning(

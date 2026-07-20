@@ -1,4 +1,4 @@
-# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 # 本文件为「云煤矿业产销量管理系统」的组成部分。
 # 仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
 # 未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
 from app.config import get_settings
-from app.constants import REMOVED_MINE_KEYWORDS
+from app.utils import exclude_mines
 from app.storage import read_records
 from app.timeutil import (
     enumerate_weekly_ranges,
@@ -129,8 +129,8 @@ def generate_sjcl_report(target_date) -> tuple[str | None, str]:
         if df.empty:
             return None, "暂无实际产量数据"
         df["生产日期"] = pd.to_datetime(df["生产日期"]).dt.date
-        df["所属煤矿"] = df["所属煤矿"].astype(str)
-        df = df[~df["所属煤矿"].str.contains("|".join(REMOVED_MINE_KEYWORDS), na=False)].copy()
+        df["所属煤矿"] = df["所属煤矿"].astype(str)  # keep astype call above
+        df = exclude_mines(df)
         target_dt = pd.to_datetime(target_date).date()
 
         out_dir = os.path.join(s.data_dir, "exports")
@@ -200,8 +200,8 @@ def generate_nybb_report(target_date) -> tuple[str | None, str]:
         if df.empty:
             return None, "暂无能源局产销量填报数据"
         df["生产日期"] = pd.to_datetime(df["生产日期"]).dt.date
-        df["所属煤矿"] = df["所属煤矿"].astype(str)
-        df = df[~df["所属煤矿"].str.contains("|".join(REMOVED_MINE_KEYWORDS), na=False)].copy()
+        df["所属煤矿"] = df["所属煤矿"].astype(str)  # keep astype call above
+        df = exclude_mines(df)
         target_dt = pd.to_datetime(target_date).date()
 
         out_dir = os.path.join(s.data_dir, "exports")
@@ -283,9 +283,7 @@ def generate_weekly_report(target_date) -> tuple[str | None, str]:
         if not prod_df.empty:
             prod_df["生产日期"] = pd.to_datetime(prod_df["生产日期"]).dt.date
             prod_df["所属煤矿"] = prod_df["所属煤矿"].astype(str)
-            prod_df = prod_df[
-                ~prod_df["所属煤矿"].str.contains("|".join(REMOVED_MINE_KEYWORDS), na=False)
-            ].copy()
+            prod_df = exclude_mines(prod_df)
 
         # ── 读取销量台账 ──
         sales_df = read_records(SALES_FILE)
@@ -306,9 +304,7 @@ def generate_weekly_report(target_date) -> tuple[str | None, str]:
             total_mask = sales_df["所属煤矿"] == "合计"
             sales_totals_df = sales_df[total_mask].copy()
             sales_df = sales_df[~total_mask].copy()
-            sales_df = sales_df[
-                ~sales_df["所属煤矿"].str.contains("|".join(REMOVED_MINE_KEYWORDS), na=False)
-            ].copy()
+            sales_df = exclude_mines(sales_df)
 
         out_dir = os.path.join(s.data_dir, "exports")
         os.makedirs(out_dir, exist_ok=True)
@@ -493,9 +489,7 @@ def generate_brief_report(target_date) -> tuple[str | None, str]:
         if not prod_df.empty:
             prod_df["生产日期"] = pd.to_datetime(prod_df["生产日期"]).dt.date
             prod_df["所属煤矿"] = prod_df["所属煤矿"].astype(str)
-            prod_df = prod_df[
-                ~prod_df["所属煤矿"].str.contains("|".join(REMOVED_MINE_KEYWORDS), na=False)
-            ].copy()
+            prod_df = exclude_mines(prod_df)
             prod_df["产量(吨)"] = pd.to_numeric(prod_df["产量(吨)"], errors="coerce").fillna(0)
 
         # ── 读取销量台账 ──
@@ -518,9 +512,7 @@ def generate_brief_report(target_date) -> tuple[str | None, str]:
             total_mask = sales_df["所属煤矿"] == "合计"
             sales_totals_df = sales_df[total_mask].copy()
             sales_df = sales_df[~total_mask].copy()
-            sales_df = sales_df[
-                ~sales_df["所属煤矿"].str.contains("|".join(REMOVED_MINE_KEYWORDS), na=False)
-            ].copy()
+            sales_df = exclude_mines(sales_df)
 
         def _sum_prod(d_start: date, d_end: date) -> float:
             if prod_df.empty:

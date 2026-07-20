@@ -1,4 +1,4 @@
-# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 """管理员后台路由（台账编辑保存、密码管理）。"""
 
 from __future__ import annotations
@@ -63,16 +63,13 @@ async def admin_ledger_save(request: Request) -> RedirectResponse:
         updated_rows.append((orig_idx, row))
 
     # ── 合并：保留未出现在表单中的行 + 更新后的行 ──
-    updated_idx_set = {r[0] for r in updated_rows}
+    updated_idx_map = dict(updated_rows)
     result_rows: list[dict] = []
     for idx in df_full.index:
         if idx in deleted_indices:
             continue
-        if idx in updated_idx_set:
-            for orig_idx, row_dict in updated_rows:
-                if orig_idx == idx:
-                    result_rows.append(row_dict)
-                    break
+        if idx in updated_idx_map:
+            result_rows.append(updated_idx_map[idx])
         else:
             result_rows.append(df_full.loc[idx].to_dict())
 
