@@ -48,6 +48,12 @@ def coerce_ledger_value(col: str, raw: str) -> Any:
         except ValueError:
             return s
     if "时间" in col:
+        # 简短格式 MM-DD HH:MM → 补全年份
+        try:
+            t = datetime.strptime(s, "%m-%d %H:%M")
+            return t.replace(year=datetime.now().year).strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            pass
         return s
     return s
 

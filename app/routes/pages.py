@@ -203,7 +203,9 @@ def home(request: Request) -> Any:
                     if x is None or (isinstance(x, float) and pd.isna(x)):
                         row_cells.append("")
                     elif isinstance(x, datetime):
-                        row_cells.append(x.strftime("%Y-%m-%d %H:%M"))
+                        now_year = datetime.now().year
+                        fmt = "%m-%d %H:%M" if x.year == now_year else "%Y-%m-%d %H:%M"
+                        row_cells.append(x.strftime(fmt))
                     elif isinstance(x, date):
                         row_cells.append(x.isoformat())
                     else:

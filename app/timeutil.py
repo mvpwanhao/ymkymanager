@@ -114,6 +114,7 @@ def format_series_as_beijing_display(
       为假时（本地 Excel/应用 now_str 写入）→ 按原样墙钟显示，不外加偏移
     """
     out: list[object] = []
+    current_year = datetime.now().year
     for v in s:
         if v is None or (isinstance(v, float) and pd.isna(v)) or (isinstance(v, str) and not str(v).strip()):
             out.append(v)
@@ -124,11 +125,11 @@ def format_series_as_beijing_display(
             continue
         t = t if isinstance(t, pd.Timestamp) else pd.Timestamp(t)
         if t.tzinfo is not None:
-            out.append(t.tz_convert(TZ_BEIJING).strftime("%Y-%m-%d %H:%M"))
+            t_bj = t.tz_convert(TZ_BEIJING)
         elif treat_naive_as_utc:
-            out.append(
-                t.tz_localize(TZ_UTC).tz_convert(TZ_BEIJING).strftime("%Y-%m-%d %H:%M")
-            )
+            t_bj = t.tz_localize(TZ_UTC).tz_convert(TZ_BEIJING)
         else:
-            out.append(t.strftime("%Y-%m-%d %H:%M"))
+            t_bj = t
+        fmt = "%m-%d %H:%M" if t_bj.year == current_year else "%Y-%m-%d %H:%M"
+        out.append(t_bj.strftime(fmt))
     return pd.Series(out, index=s.index, dtype=object)
