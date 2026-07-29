@@ -255,16 +255,19 @@ def _render_admin_ledger(request: Request, templates: Jinja2Templates, ctx: dict
 
 def _render_reports(request: Request, templates: Jinja2Templates, ctx: dict, role: str, act_path: str, en_path: str) -> Any:
     today = today_beijing()
-    _, wk_end = get_weekly_range(today)
+    wk_start, wk_end = get_weekly_range(today)
     brief_text = request.session.pop("brief_text", None)
+    weekly_dl = request.session.pop("weekly_download_file", None)
     return templates.TemplateResponse(
         request,
         "reports.html",
         {
             **ctx,
             "default_date": (today - timedelta(days=1)),
+            "default_week_start": wk_start.isoformat(),
             "default_week_end": wk_end.isoformat(),
             "brief_text": brief_text,
+            "weekly_download_file": weekly_dl,
         },
     )
 

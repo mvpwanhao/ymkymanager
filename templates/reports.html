@@ -34,23 +34,28 @@
   </div>
 
   <div class="card" style="margin-top:1.5rem;background:var(--c-bg-soft);">
-    <h3>周报表</h3>
-    <p class="muted">按周区间（周六至周五）汇总各矿原煤生产量与自产煤销售量，生成吨表和万吨表。</p>
-    <form method="post" action="/reports/weekly" data-loading data-no-global-busy style="max-width:360px;">
-      <label for="d3">周末日期（周五）</label>
-      <input type="date" id="d3" name="target_date" value="{{ default_week_end }}" required />
-      <button type="submit" class="btn btn-primary inline" style="margin-top:0.7rem;">生成并下载</button>
+    <h3>周报表及产销量简报</h3>
+    <p class="muted">选择一个固定时间区间，一键生成周报表（吨表+万吨表）和产销量简报。默认每周起始日为周六。</p>
+    <form method="post" action="/reports/weekly-and-brief" data-loading data-no-global-busy style="max-width:500px;">
+      <div style="display:flex;gap:0.8rem;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <label for="d5s">起始日期</label>
+          <input type="date" id="d5s" name="start_date" value="{{ default_week_start }}" required />
+        </div>
+        <div>
+          <label for="d5e">结束日期</label>
+          <input type="date" id="d5e" name="end_date" value="{{ default_week_end }}" required />
+        </div>
+        <button type="submit" class="btn btn-primary inline">生成周报表及简报</button>
+      </div>
     </form>
-  </div>
-
-  <div class="card" style="margin-top:1.5rem;background:var(--c-bg-soft);">
-    <h3>产销量简报</h3>
-    <p class="muted">生成文本格式的产销量简报，可直接复制粘贴到微信群等。</p>
-    <form method="post" action="/reports/brief" data-loading data-no-global-busy style="max-width:360px;">
-      <label for="d4">数据所属日期</label>
-      <input type="date" id="d4" name="target_date" value="{{ default_date.isoformat() }}" required />
-      <button type="submit" class="btn btn-primary inline" style="margin-top:0.7rem;">生成简报</button>
-    </form>
+    {% if weekly_download_file %}
+    <div style="margin-top:1rem;padding:0.8rem 1rem;background:var(--c-bg);border-radius:6px;border:1px solid var(--c-border);">
+      <span style="font-weight:600;">周报表已生成</span>
+      <span style="margin:0 0.6rem;color:var(--c-muted);">|</span>
+      <a href="/reports/download?f={{ weekly_download_file }}" class="btn btn-sm btn-primary">下载周报表</a>
+    </div>
+    {% endif %}
     {% if brief_text %}
     <div style="margin-top:1.2rem;">
       <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;">

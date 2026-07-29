@@ -257,7 +257,7 @@ def _set_cell_num(ws, row, col, value, *, decimals=0):
     cell.number_format = "0" if decimals == 0 else f"0.{'0' * decimals}"
 
 
-def generate_weekly_report(target_date) -> tuple[str | None, str]:
+def generate_weekly_report(start_date, end_date) -> tuple[str | None, str]:
     """生成周报表（吨表 + 万吨表）。
 
     数据来源：
@@ -273,10 +273,10 @@ def generate_weekly_report(target_date) -> tuple[str | None, str]:
         return None, f"未找到周报表模板：{TEMPLATE}"
 
     try:
-        target_dt = pd.to_datetime(target_date).date()
-        week_start, week_end = get_weekly_range(target_dt)
-        month_start, month_end = get_26day_month_range(target_dt)
-        year_start, _ = get_26day_year_range(target_dt)
+        week_start = pd.to_datetime(start_date).date()
+        week_end = pd.to_datetime(end_date).date()
+        month_start, month_end = get_26day_month_range(week_end)
+        year_start, _ = get_26day_year_range(week_end)
 
         # ── 读取产量台账 ──
         prod_df = read_records(ACTUAL_FILE)
@@ -456,7 +456,7 @@ BRIEF_MINE_ORDER: tuple[str, ...] = (
 )
 
 
-def generate_brief_report(target_date) -> tuple[str | None, str]:
+def generate_brief_report(start_date, end_date) -> tuple[str | None, str]:
     """生成产销量简报文本（纯文本，可直接复制粘贴到微信群等）。
 
     返回 (brief_text, message)；brief_text 为 None 表示出错。
@@ -466,17 +466,17 @@ def generate_brief_report(target_date) -> tuple[str | None, str]:
     SALES_FILE = s.actual_sales_path
 
     try:
-        target_dt = pd.to_datetime(target_date).date()
-        week_start, week_end = get_weekly_range(target_dt)
-        month_start, month_end = get_26day_month_range(target_dt)
-        year_start, _ = get_26day_year_range(target_dt)
+        week_start = pd.to_datetime(start_date).date()
+        week_end = pd.to_datetime(end_date).date()
+        month_start, month_end = get_26day_month_range(week_end)
+        year_start, _ = get_26day_year_range(week_end)
 
         # ── 确定周序号（基于日历月，从1日起算）──
         cal_month_start = date(month_end.year, month_end.month, 1)
         all_weeks = enumerate_weekly_ranges(cal_month_start, month_end)
         week_num = 1
         for i, (ws, we) in enumerate(all_weeks, 1):
-            if ws <= target_dt <= we:
+            if ws <= week_end <= we:
                 week_num = i
                 break
 
@@ -611,7 +611,7 @@ def generate_brief_report(target_date) -> tuple[str | None, str]:
 
         # ── 日期格式化辅助 ──
         stat_month = month_end.month  # 统计月 = 25日所在月
-        year_val = target_dt.year
+        year_val = week_end.year
 
         def _md(d: date) -> str:
             return f"{d.month}月{d.day}日"

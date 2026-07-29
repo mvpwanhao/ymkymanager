@@ -55,11 +55,12 @@ def report_nybb(
 @router.post("/reports/weekly", response_model=None)
 def report_weekly(
     request: Request,
-    target_date: str = Form(...),
+    start_date: str = Form(...),
+    end_date: str = Form(...),
 ) -> FileResponse | RedirectResponse:
     if request.session.get("role") != "管理员":
         return RedirectResponse("/login", status_code=303)
-    out, msg = generate_weekly_report(target_date)
+    out, msg = generate_weekly_report(start_date, end_date)
     if not out or not os.path.isfile(out):
         request.session["flash"] = msg or "生成失败"
         return RedirectResponse("/go/reports", status_code=303)
@@ -71,11 +72,12 @@ def report_weekly(
 @router.post("/reports/brief", response_model=None)
 def report_brief(
     request: Request,
-    target_date: str = Form(...),
+    start_date: str = Form(...),
+    end_date: str = Form(...),
 ) -> RedirectResponse:
     if request.session.get("role") != "管理员":
         return RedirectResponse("/login", status_code=303)
-    brief_text, msg = generate_brief_report(target_date)
+    brief_text, msg = generate_brief_report(start_date, end_date)
     if not brief_text:
         request.session["flash"] = msg or "生成失败"
         return RedirectResponse("/go/reports", status_code=303)
@@ -83,6 +85,31 @@ def report_brief(
     request.session["flash"] = msg or "产销量简报已生成"
     return RedirectResponse("/go/reports", status_code=303)
 
+
+
+@router.post("/reports/weekly-and-brief", response_model=None)
+def report_weekly_and_brief(
+    request: Request,
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+) -> RedirectResponse:
+    """同时生成周报表（Excel 下载）和产销量简报（文本展示）。"""
+    if request.session.get("role") != "管理员":
+        return RedirectResponse("/login", status_code=303)
+
+    # 生成周报表
+    out, weekly_msg = generate_weekly_report(start_date, end_date)
+    if not out or not os.path.isfile(out):
+        request.session["flash"] = weekly_msg or "周报表生成失败"
+        return RedirectResponse("/go/reports", status_code=303)
+
+    # 生成简报
+    brief_text, brief_msg = generate_brief_report(start_date, end_date)
+    if brief_text:
+        request.session["brief_text"] = brief_text
+    request.session["weekly_download_file"] = os.path.basename(out)
+    request.session["flash"] = "周报表和产销量简报已生成"
+    return RedirectResponse("/go/reports", status_code=303)
 
 @router.get("/reports/download", response_model=None)
 def report_download(
