@@ -31,8 +31,7 @@ import logging
 import os
 import smtplib
 import sys
-from email import encoders
-from email.mime.base import MIMEBase
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr, formatdate
@@ -169,16 +168,22 @@ def send_email(
         if not filepath or not os.path.exists(filepath):
             log.warning("附件不存在，跳过: %s", filepath)
             continue
+        filename = os.path.basename(filepath)
+        _, ext = os.path.splitext(filename.lower())
+        subtype = (
+            "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            if ext == ".xlsx"
+            else "octet-stream"
+        )
         with open(filepath, "rb") as f:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(f.read())
-            encoders.encode_base64(part)
-            filename = os.path.basename(filepath)
-            part.add_header(
-                "Content-Disposition",
-                f'attachment; filename="{filename}"',
-            )
-            msg.attach(part)
+            part = MIMEApplication(f.read(), _subtype=subtype)
+        # RFC 2231 编码文件名，支持中文
+        part.add_header(
+            "Content-Disposition",
+            "attachment",
+            filename=("utf-8", "", filename),
+        )
+        msg.attach(part)
         log.info("已添加附件: %s", filename)
 
     try:
