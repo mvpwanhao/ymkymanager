@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     password_reporter: str = Field(default="", validation_alias="YMKY_PASSWORD_REPORTER")
     password_viewer: str = Field(default="", validation_alias="YMKY_PASSWORD_VIEWER")
 
+    # ── 邮件发送配置（scripts/auto_report.py 自动报表用）─────────
+    smtp_host: str = Field(default="", validation_alias="YMKY_SMTP_HOST")
+    smtp_port: int = Field(default=465, validation_alias="YMKY_SMTP_PORT")
+    smtp_user: str = Field(default="", validation_alias="YMKY_SMTP_USER")
+    smtp_password: str = Field(default="", validation_alias="YMKY_SMTP_PASSWORD")
+    mail_to: str = Field(default="", validation_alias="YMKY_MAIL_TO")
+    mail_from_name: str = Field(
+        default="云煤矿业报表系统", validation_alias="YMKY_MAIL_FROM_NAME"
+    )
+
     @field_validator("ymky_env", mode="before")
     @classmethod
     def _coerce_ymky_env(cls, v: object) -> str:
