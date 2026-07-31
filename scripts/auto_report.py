@@ -5,8 +5,8 @@
 由服务器定时任务触发（8:30 起，每 5 分钟一次）。
 
 流程：
-  1. 检查当天是否已执行过（状态文件存在则直接退出）
-  2. 检查"姚家村煤矿""金所煤矿""芒东二矿"在两个台账的填报状态
+  1. 检查昨日报表是否已处理过（状态文件存在则直接退出）
+  2. 检查"姚家村煤矿""金所煤矿""芒东二矿"在两个台账昨日数据的填报状态
      - 实际产量台账 (actual_production.xlsx)
      - 能源局产销量台账 (energy_reporting.xlsx)
   3a. 三个矿两个台账都填了 → 生成两个报表 → 邮件发送 Excel 附件 → 写状态文件
@@ -46,6 +46,8 @@ os.chdir(_PROJECT_ROOT)
 from app.config import get_settings
 from app.report_engine import generate_nybb_report, generate_sjcl_report
 from app.storage import find_records_by_mine_date
+from datetime import timedelta
+
 from app.timeutil import now_beijing, today_beijing
 
 # ── 配置 ──────────────────────────────────────────────
@@ -201,9 +203,9 @@ def send_email(
 #  主流程
 # ═══════════════════════════════════════════════════════
 def main() -> int:
-    target_date = today_beijing().isoformat()
+    target_date = (today_beijing() - timedelta(days=1)).isoformat()
     now = now_beijing()
-    log.info("=== 自动报表检查 start | target_date=%s | now=%s ===", target_date, now.strftime("%H:%M"))
+    log.info("=== 自动报表检查 start | target_date=%s(昨日) | now=%s ===", target_date, now.strftime("%H:%M"))
 
     # 1. 今天已执行过 → 退出
     if has_already_run(target_date):
