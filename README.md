@@ -3,7 +3,7 @@
 > 面向煤矿产销业务的轻量级 Web 平台。支持双通道填报、可追溯台账、统计可视化、报表导出与运维巡检，专为云南云煤矿业内部业务场景设计。
 
 仓库：[gitee.com/mvpwanhao/ykmymanager](https://gitee.com/mvpwanhao/ykmymanager)  
-当前版本：**1.4.5**（见 VERSION，/health 默认返回 v + 该号）  
+当前版本：**1.5.0**（见 VERSION，/health 默认返回 v + 该号）  
 变更记录：CHANGELOG.md
 
 ---
@@ -41,6 +41,18 @@
 - **默认**：data/*.xlsx 台账 + 文件锁，适合单机与小规模部署
 - **可选 PostgreSQL**：配置 DATABASE_URL 后读写数据库；连接失败时写入本地 Excel 缓冲，恢复后自动回同步库（顶栏黄色断线提示）
 - **报表模板**：sjcl1.xlsx（实际产量报表与日计划）、nybb.xlsx（能源局日报）、weeksheet.xlsx（周报表，吨表+万吨表）——需存在于 data/ 目录
+
+---
+
+## 前端设计体系（Material Design 3）
+
+自 **1.5.0** 起，整套界面基于 **Material Design 3** 设计语言重写，与品牌视觉统一、明暗双主题自适应。
+
+- **设计令牌**：以品牌蓝 `#0062A8` 为源色经 MD3 tonal 算法生成完整系统色角色（primary / secondary / tertiary / error，另补 success / warning 语义色），并构建明 / 暗双 scheme 与多级 `surface-container` 层级；旧 `--c-*` 变量全部以别名映射保留，向后兼容既有组件。
+- **组件规范**：按钮采用 stadium 全圆角（filled / tonal / outlined / text 四级，hover·active 用 state layer 叠加）；卡片、弹窗、载入面板分别使用 16px / 28px 圆角；分段控件（pill-tabs）、筛选 chip（选中自动带 ✓）、导航抽屉（选中项 secondary-container 全圆角 pill）、通知条（tonal 无边框容器）均遵循 MD3 形态。
+- **表单与细节**：输入框为 MD3 outlined 样式（16px 字号避免移动端聚焦缩放，聚焦态主色描边光晕）；原生控件 `accent-color` 统一为主色；滚动条、文字选区、下拉选项弹层均按主题令牌着色（已修复 Windows 原生 `<select>` 在深色模式下「白底白字」问题）。
+- **可视化**：ECharts 配色切换为 MD3 tonal 调色板（明 / 暗两套随主题自动切换），图表背景透明以融入 tonal 图表面板。
+- **质感**：移除玻璃拟态与角部光晕 / 点阵纹理，改为 MD3 扁平 tonal surface；移动端浏览器 `theme-color` 跟随页面底色。
 
 ---
 

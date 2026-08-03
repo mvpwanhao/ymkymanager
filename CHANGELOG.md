@@ -4,6 +4,23 @@
 
 **约定：** **`VERSION`**（仓库根单文件三段式）为本项目**默认对外版本号的唯一真源**；`/health` 返回的 `version` 取自该文件（前缀 `v`），除非设置了 **`YMKY_APP_VERSION`** 覆盖。**向远端推送前**须在 `CHANGELOG.md` 增补本次条目并与 `VERSION`/`commit` 说明一致。
 
+## [1.5.0] - 2026-08-03
+
+### 变更
+
+- **前端全面重塑为 Material Design 3 设计语言**：整套设计令牌与组件层重写（`app.css` 全量重写），覆盖全部 17 个页面模板，模板结构基本不动。
+  - 色彩：以品牌蓝 `#0062A8` 为源色生成 MD3 tonal 系统色角色（primary/secondary/tertiary/error，另补 success/warning 语义色），明/暗双 scheme 与完整 surface container 层级；旧 CSS 变量全部以别名映射保留，向后兼容。
+  - 组件：按钮改 stadium 全圆角（filled/tonal/outlined/text 四级，hover/active 采用 state layer 叠加）；卡片改 outlined 16px 圆角；弹窗与载入面板 28px 圆角；`pill-tabs` 改 MD3 分段控件；台账筛选 chip 改 MD3 filter chip（选中自动带 ✓）；通知条改 tonal 容器（无边框）。
+  - 导航：侧边栏条目改 MD3 导航抽屉样式（选中项为 secondary-container 全圆角 pill），菜单按钮改无边框标准图标按钮；抽屉遮罩统一为 MD3 scrim。
+  - 表单：输入框改 MD3 outlined 样式，字号升至 16px（避免 iOS 聚焦自动缩放），聚焦态为主色描边光晕；原生控件 `accent-color` 统一为主色。
+  - 可视化：ECharts 配色换 MD3 tonal 调色板（明/暗两套自动切换），图表背景改为透明以融入 tonal 图表面板。
+  - 质感：移除玻璃拟态与页面角部光晕/点阵纹理，改为 MD3 扁平 tonal surface；滚动条、文字选区等细节统一。
+- **移动端浏览器主题色跟随页面底色**：`theme-color` 由品牌蓝改为 surface 色（明 `#F7F9FC` / 暗 `#10141A`）。
+
+### 修复
+
+- **深色模式下拉弹层「白底白字」不可读**：Windows 原生 `<select>` 选项弹层不必然跟随页面 `color-scheme`，弹层保持白底而文字继承深色主题的近白色导致隐形；现显式指定 `option` 的背景色与文字色（跟随主题令牌），主题切换、煤矿选择等全部下拉框在深色模式下恢复可读。
+
 ## [1.4.5] - 2026-07-20
 
 ### 新增

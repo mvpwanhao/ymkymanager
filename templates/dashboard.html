@@ -62,7 +62,7 @@
 </div>
 
 <div id="viz-loading" class="card" style="text-align:center;padding:2rem;">
-  <span class="ymky-busy__spinner" aria-hidden="true" style="display:inline-block;width:28px;height:28px;border:3px solid #ccc;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite;"></span>
+  <span class="ymky-busy__spinner" aria-hidden="true" style="display:inline-block;width:28px;height:28px;border:3px solid var(--md-surface-container-highest);border-top-color:var(--md-primary);border-radius:50%;animation:spin 0.8s linear infinite;"></span>
   <p style="margin-top:0.5rem;">加载中…</p>
 </div>
 
@@ -145,14 +145,17 @@
   var currentParams = { period: "year" };
   var isDark = document.documentElement.getAttribute("data-color-mode") === "dark";
 
-  function getTextColor() { return isDark ? "#e2e8f0" : "#1e293b"; }
-  function getAxisColor() { return isDark ? "#94a3b8" : "#64748b"; }
-  function getGridColor() { return isDark ? "rgba(148,163,184,0.15)" : "rgba(100,116,139,0.12)"; }
-  function getBgColor() { return isDark ? "#1e293b" : "#ffffff"; }
-  function getTooltipBg() { return isDark ? "rgba(30,41,59,0.96)" : "rgba(255,255,255,0.96)"; }
-  function getTooltipBorder() { return isDark ? "rgba(148,163,184,0.3)" : "rgba(100,116,139,0.2)"; }
+  function getTextColor() { return isDark ? "#e1e2e9" : "#191c20"; }
+  function getAxisColor() { return isDark ? "#a3aab5" : "#565d67"; }
+  function getGridColor() { return isDark ? "rgba(142,145,153,0.22)" : "rgba(116,119,127,0.18)"; }
+  function getBgColor() { return "transparent"; }
+  function getTooltipBg() { return isDark ? "rgba(39,42,49,0.97)" : "rgba(255,255,255,0.97)"; }
+  function getTooltipBorder() { return isDark ? "#44474e" : "#c4c6cf"; }
 
-  var COLORWAY = ["#2563eb", "#ea580c", "#16a34a", "#dc2626", "#7c3aed", "#0d9488"];
+  // MD3 tonal 图表配色（明/暗两套）
+  var COLORWAY_LIGHT = ["#0062a8", "#9a4522", "#1e6b33", "#ba1a1a", "#6b5778", "#00696b"];
+  var COLORWAY_DARK  = ["#9fcafc", "#ffb59b", "#8fda9b", "#ffb4ab", "#d6bee4", "#70d6d6"];
+  function getColorway() { return isDark ? COLORWAY_DARK : COLORWAY_LIGHT; }
 
   function tooltipBase(extra) {
     var base = {
@@ -261,7 +264,7 @@
     }
 
     c.setOption({
-      color: COLORWAY,
+      color: getColorway(),
       backgroundColor: getBgColor(),
       tooltip: tooltipBase({
         trigger: "axis",
@@ -301,7 +304,7 @@
     var yearSales = filtered.map(function(m) { return m.year_sales; });
 
     c.setOption({
-      color: COLORWAY,
+      color: getColorway(),
       backgroundColor: getBgColor(),
       tooltip: tooltipBase({
         trigger: "axis", axisPointer: { type: "shadow" },
@@ -346,7 +349,7 @@
     var pieTitle = (periodName || "期间") + "总产量";
 
     c.setOption({
-      color: COLORWAY,
+      color: getColorway(),
       backgroundColor: getBgColor(),
       title: { text: pieTitle + ": " + fmtNum(total) + " 吨", left: "left", top: 0,
         textStyle: { color: getTextColor(), fontSize: 13, fontWeight: "normal" } },
@@ -380,7 +383,7 @@
     }
 
     c.setOption({
-      color: COLORWAY,
+      color: getColorway(),
       backgroundColor: getBgColor(),
       title: { text: "年累计总销量: " + fmtNum(total) + " 吨", left: "left", top: 0,
         textStyle: { color: getTextColor(), fontSize: 13, fontWeight: "normal" } },
@@ -451,7 +454,7 @@
     var legendData = ["合计"].concat(mineNames);
 
     c.setOption({
-      color: [COLORWAY[0]].concat(COLORWAY.slice(1)),
+      color: [getColorway()[0]].concat(getColorway().slice(1)),
       backgroundColor: getBgColor(),
       tooltip: tooltipBase({
         trigger: "axis",
@@ -538,7 +541,7 @@
     var legendData = ["合计"].concat(mineNames);
 
     c.setOption({
-      color: [COLORWAY[1]].concat(COLORWAY),
+      color: [getColorway()[1]].concat(getColorway()),
       backgroundColor: getBgColor(),
       tooltip: tooltipBase({
         trigger: "axis",
@@ -642,7 +645,7 @@
       .then(function(data) { if (data.error) throw new Error(data.error); renderAll(data); })
       .catch(function(err) {
         document.getElementById("viz-loading").innerHTML =
-          '<p style="color:#dc2626;">数据加载失败，请稍后重试。</p>';
+          '<p style="color:var(--md-error);">数据加载失败，请稍后重试。</p>';
       });
   }
 

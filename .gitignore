@@ -116,3 +116,6 @@ ckref.html
 start_server.bat
 # Internal ops manual (contains server IPs, credentials)
 agent.md
+
+# AI 识图脚本（含第三方 API Key，勿提交）
+vision.js

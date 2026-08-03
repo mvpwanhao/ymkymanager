@@ -37,7 +37,7 @@
       var sel = document.getElementById("themeSelect");
       if (sel) sel.value = p;
       var meta = document.getElementById("meta-theme-color");
-      if (meta) meta.setAttribute("content", mode === "dark" ? "#121316" : "#0062a8");
+      if (meta) meta.setAttribute("content", mode === "dark" ? "#10141a" : "#f7f9fc");
       try {
         window.dispatchEvent(new CustomEvent("ymky-theme", { detail: { mode: mode, pref: p } }));
       } catch (e) {}
