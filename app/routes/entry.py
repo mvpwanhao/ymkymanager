@@ -22,6 +22,7 @@ from app.helpers import (
     safe_replace_sales,
 )
 from app.report_engine import read_sjcl_v2_daily_plans_from_template
+from app.services.notify import notify_submit_actual, notify_submit_energy, notify_submit_sales
 from app.storage import (
     dataframe_actual_production_new_row,
     dataframe_actual_sales_new_row,
@@ -145,7 +146,13 @@ def submit_actual(
         )
         return RedirectResponse("/", status_code=303)
 
-    request.session["flash"] = save_msg
+    ok, msg = notify_submit_actual(
+        mine=mine, prod_date=prod_date_iso, reporter=who, production=prod, note=note
+    )
+    if not ok and msg and "未配置" not in msg:
+        request.session["flash"] = f"{save_msg}。{msg}"
+    else:
+        request.session["flash"] = save_msg
     return RedirectResponse("/", status_code=303)
 
 
@@ -254,7 +261,13 @@ def submit_energy(
         )
         return RedirectResponse("/", status_code=303)
 
-    request.session["flash"] = save_msg
+    ok, msg = notify_submit_energy(
+        mine=mine, prod_date=prod_date_iso, reporter=who, production=p_f, sales=s_f, note=note
+    )
+    if not ok and msg and "未配置" not in msg:
+        request.session["flash"] = f"{save_msg}。{msg}"
+    else:
+        request.session["flash"] = save_msg
     return RedirectResponse("/", status_code=303)
 
 
@@ -434,5 +447,17 @@ def submit_sales(
             _df = _df.drop(columns=["_we", "_ws"], errors="ignore")
             overwrite_records(sales_path, _df)
 
-    request.session["flash"] = save_msg
+    ok, msg = notify_submit_sales(
+        mine=mine,
+        week_range=f"{week_start_iso} 至 {week_end_iso}",
+        reporter=who,
+        sales=sales_f,
+        year_blended=blended_f,
+        year_purchased=purchased_f,
+        note=note,
+    )
+    if not ok and msg and "未配置" not in msg:
+        request.session["flash"] = f"{save_msg}。{msg}"
+    else:
+        request.session["flash"] = save_msg
     return RedirectResponse("/go/entry_sales", status_code=303)

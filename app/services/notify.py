@@ -112,6 +112,96 @@ def send_wechat_push(*, title: str, content: str) -> tuple[bool, str]:
         return False, f"微信提醒发送异常：{e!s}"
 
 
+# ── 填报成功通知────────────────────────
+
+
+def _append_note_and_time(lines: list[str], note: str) -> list[str]:
+    """追加备注（如有）与提交时间，返回原列表。"""
+    if str(note).strip():
+        lines.append(f"- 备注：{str(note).strip()}")
+    lines.append(f"- 提交时间：{now_str()}")
+    return lines
+
+
+def _send_success_notification(*, title: str, lines: list[str]) -> tuple[bool, str]:
+    """发送填报成功提醒。
+
+    优先使用自建微信推送服务器（WECHAT_PUSH_API_URL/TOKEN，微信测试号模板消息）；
+    未配置或发送失败时，回退到 Server酱（SERVERCHAN_SENDKEY）。
+    """
+    if not _push_available() and not _serverchan_available():
+        return False, "未配置推送通道（WECHAT_PUSH_API_* 或 SERVERCHAN_SENDKEY），跳过通知"
+
+    full_desp = "\n".join(lines)
+    if _push_available():
+        # 自建推送是模板消息，单字段有长度限制：只传精简内容
+        ok, msg = send_wechat_push(title=title, content=full_desp[:500])
+        if ok or not _serverchan_available():
+            return ok, msg
+    return send_serverchan(title=title, desp=full_desp)
+
+
+def notify_submit_actual(
+    *,
+    mine: str,
+    prod_date: str,
+    reporter: str,
+    production: float,
+    note: str = "",
+) -> tuple[bool, str]:
+    """实际产量填报成功提醒。"""
+    title = "✅ 填报成功｜实际产量"
+    lines = [
+        f"{mine} {prod_date} 产量{production:.2f}吨",
+        f"- 填报人：{reporter}",
+    ]
+    return _send_success_notification(title=title, lines=_append_note_and_time(lines, note))
+
+
+def notify_submit_energy(
+    *,
+    mine: str,
+    prod_date: str,
+    reporter: str,
+    production: float,
+    sales: float,
+    note: str = "",
+) -> tuple[bool, str]:
+    """能源局产销量填报成功提醒。"""
+    title = "✅ 填报成功｜能源局产销量"
+    lines = [
+        f"{mine} {prod_date} 产{production:.2f}吨 销{sales:.2f}吨",
+        f"- 填报人：{reporter}",
+    ]
+    return _send_success_notification(title=title, lines=_append_note_and_time(lines, note))
+
+
+def notify_submit_sales(
+    *,
+    mine: str,
+    week_range: str,
+    reporter: str,
+    sales: float = 0.0,
+    year_blended: float = 0.0,
+    year_purchased: float = 0.0,
+    note: str = "",
+) -> tuple[bool, str]:
+    """实际销量填报成功提醒（不选煤矿时仅汇总年累计掺配煤/外购煤量）。"""
+    title = "✅ 填报成功｜实际销量"
+    if mine:
+        lines = [
+            f"{mine} 周销量{sales:.2f}吨",
+            f"- 统计周期：{week_range}",
+            f"- 填报人：{reporter}",
+        ]
+    else:
+        lines = [
+            f"年累计掺配煤{year_blended:.2f}吨 外购{year_purchased:.2f}吨",
+            f"- 填报人：{reporter}",
+        ]
+    return _send_success_notification(title=title, lines=_append_note_and_time(lines, note))
+
+
 # ── 异常告警通知────────────────────────
 
 
