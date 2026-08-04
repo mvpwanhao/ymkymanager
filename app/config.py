@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
+# Copyright (c) 2026-2027 宛皓 (Wan Hao). All rights reserved.
 # 本文件为「云煤矿业产销量管理系统」的组成部分。
 # 仅授予云南云煤矿业开发有限公司及其关联方在内部业务系统中使用；
 # 未经著作权人书面同意，禁止复制、反编译、转售或二次发行。详见根目录 LICENSE。
@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     data_dir: Path | None = None
     database_url: str = Field(default="", validation_alias="DATABASE_URL")
     serverchan_sendkey: str = Field(default="", validation_alias="SERVERCHAN_SENDKEY")
+    push_api_url: str = Field(
+        default="", validation_alias="WECHAT_PUSH_API_URL", description="自建微信推送服务器（POST /api/v1/send）"
+    )
+    push_api_token: str = Field(default="", validation_alias="WECHAT_PUSH_API_TOKEN")
     session_ttl_seconds: int = Field(default=8 * 3600, validation_alias="YMKY_SESSION_TTL")
     local_debug_password_autofill: bool = Field(
         default=False, validation_alias="YMKY_LOCAL_DEBUG"
