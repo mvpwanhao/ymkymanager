@@ -76,14 +76,19 @@ def send_serverchan(*, title: str, desp: str) -> tuple[bool, str]:
         return False, f"微信提醒发送异常：{e!s}"
 
 
-def send_wechat_push(*, title: str, content: str) -> tuple[bool, str]:
+def send_wechat_push(
+    *, title: str, content: str, fields: dict[str, str] | None = None
+) -> tuple[bool, str]:
     """发送到自建微信推送服务器（POST /api/v1/send，Bearer 鉴权）。"""
     url, token = get_push_api()
     if not url or not token:
         return False, "未配置 WECHAT_PUSH_API_URL/WECHAT_PUSH_API_TOKEN"
 
-    body = json.dumps({"title": title, "content": content}, ensure_ascii=False).encode("utf-8")
-    req = request.Request(url, data=body, method="POST")
+    body: dict = {"title": title, "content": content}
+    if fields:
+        body["fields"] = fields
+    body_bytes = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    req = request.Request(url, data=body_bytes, method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("Authorization", f"Bearer {token}")
     try:
@@ -123,7 +128,22 @@ def _append_note_and_time(lines: list[str], note: str) -> list[str]:
     return lines
 
 
-def _send_success_notification(*, title: str, lines: list[str]) -> tuple[bool, str]:
+def _compact_num(value: float) -> str:
+    """数字压缩：920.00 -> 920、788.20 -> 788.2。"""
+    s = f"{value:.2f}".rstrip("0").rstrip(".")
+    return s or "0"
+
+
+def _short_date(value: str) -> str:
+    """2026-08-04 -> 08-04，其它格式原样返回。"""
+    if len(value) == 10 and value[4] == "-" and value[7] == "-":
+        return value[5:]
+    return value
+
+
+def _send_success_notification(
+    *, title: str, lines: list[str], fields: dict[str, str] | None = None
+) -> tuple[bool, str]:
     """发送填报成功提醒。
 
     优先使用自建微信推送服务器（WECHAT_PUSH_API_URL/TOKEN，微信测试号模板消息）；
@@ -135,7 +155,7 @@ def _send_success_notification(*, title: str, lines: list[str]) -> tuple[bool, s
     full_desp = "\n".join(lines)
     if _push_available():
         # 自建推送是模板消息，单字段有长度限制：只传精简内容
-        ok, msg = send_wechat_push(title=title, content=full_desp[:500])
+        ok, msg = send_wechat_push(title=title, content=full_desp[:500], fields=fields)
         if ok or not _serverchan_available():
             return ok, msg
     return send_serverchan(title=title, desp=full_desp)
@@ -155,7 +175,13 @@ def notify_submit_actual(
         f"{mine} {prod_date} 产量{production:.2f}吨",
         f"- 填报人：{reporter}",
     ]
-    return _send_success_notification(title=title, lines=_append_note_and_time(lines, note))
+    fields = {
+        "thing1": f"{mine} {_short_date(prod_date)} 产{_compact_num(production)}吨",
+        "thing2": f"填报人：{reporter} {now_str()[5:16]}",
+    }
+    return _send_success_notification(
+        title=title, lines=_append_note_and_time(lines, note), fields=fields
+    )
 
 
 def notify_submit_energy(
@@ -173,7 +199,13 @@ def notify_submit_energy(
         f"{mine} {prod_date} 产{production:.2f}吨 销{sales:.2f}吨",
         f"- 填报人：{reporter}",
     ]
-    return _send_success_notification(title=title, lines=_append_note_and_time(lines, note))
+    fields = {
+        "thing1": f"{mine} {_short_date(prod_date)} 产{production:.0f}销{sales:.0f}吨",
+        "thing2": f"填报人：{reporter} {now_str()[5:16]}",
+    }
+    return _send_success_notification(
+        title=title, lines=_append_note_and_time(lines, note), fields=fields
+    )
 
 
 def notify_submit_sales(
@@ -194,12 +226,22 @@ def notify_submit_sales(
             f"- 统计周期：{week_range}",
             f"- 填报人：{reporter}",
         ]
+        fields = {
+            "thing1": f"{mine} 周销{_compact_num(sales)}吨",
+            "thing2": f"填报人：{reporter} {now_str()[5:16]}",
+        }
     else:
         lines = [
             f"年累计掺配煤{year_blended:.2f}吨 外购{year_purchased:.2f}吨",
             f"- 填报人：{reporter}",
         ]
-    return _send_success_notification(title=title, lines=_append_note_and_time(lines, note))
+        fields = {
+            "thing1": f"年掺配{_compact_num(year_blended)} 外购{_compact_num(year_purchased)}",
+            "thing2": f"填报人：{reporter} {now_str()[5:16]}",
+        }
+    return _send_success_notification(
+        title=title, lines=_append_note_and_time(lines, note), fields=fields
+    )
 
 
 # ── 异常告警通知────────────────────────
