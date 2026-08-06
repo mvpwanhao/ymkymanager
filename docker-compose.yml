@@ -3,10 +3,10 @@
 #
 # SakuraFrp：`profiles: natfrp`，见 docs/SAKURA_TUNNEL.md（与 cloudflared 二选一或可都不开）。
 #
-# Cloudflare Tunnel：`profiles: cloudflared`，在 .env 设置 CLOUDFLARE_TUNNEL_TOKEN（见 docs/CLOUDFLARE_TUNNEL.md）。
+# Cloudflare Tunnel 已移出本项目，独立部署于 /opt/cloudflared（docker-compose.yml）
 # Dashboard ingress 后端请填 http://ymky:8080（Compose 服务名 ymky），勿写 127.0.0.1。
 #
-# COMPOSE_PROFILES 可 comma 启用多个 profile，例如：cloudflared 或 natfrp
+# COMPOSE_PROFILES 仅用于 natfrp（示例：COMPOSE_PROFILES=natfrp）
 
 services:
   ymky:
@@ -44,6 +44,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    networks:
+      default:
+        aliases:
+          - ymky
+          - ymky-manager
 
   sakurafrp:
     container_name: sakurafrp
@@ -63,18 +68,3 @@ services:
       # 持久化 launcher 配置（证书、远程管理等）；勿提交仓库（见 .gitignore）
       - ./natfrp:/run
 
-  cloudflared:
-    container_name: cloudflared-tunnel
-    image: cloudflare/cloudflared:latest
-    pull_policy: if_not_present
-    restart: unless-stopped
-    profiles: ["cloudflared"]
-    depends_on:
-      ymky:
-        condition: service_healthy
-    # 勿挂载整份 .env：会把 CLOUDFLARE_TUNNEL_TOKEN 等打进容器，cloudflared 启动日志会明文打印变量名与值。
-    # Compose 仍会从项目根 .env 做 ${CLOUDFLARE_TUNNEL_TOKEN} 插值，仅注入下面是运行所需。
-    environment:
-      TZ: Asia/Shanghai
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
-    command: tunnel run
