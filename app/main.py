@@ -22,8 +22,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import get_settings
 from app.helpers import compute_asset_version
+from app.middleware_ccx import CcxAuthMiddleware
 from app.middleware_production import SecurityHeadersMiddleware, StaticCacheMiddleware
-from app.routes import admin, auth, entry, health, pages, report, viz
+from app.routes import admin, auth, ccx, entry, health, pages, report, viz
 from app.services.notify import notify_alert
 
 LOG_FILE = get_settings().log_file
@@ -88,6 +89,8 @@ def create_app() -> FastAPI:
     )
 
     # ── 中间件 ──
+    # 可信头认证须先于 SessionMiddleware 注册（在其之内运行，可读写 session）
+    app.add_middleware(CcxAuthMiddleware)
     app.add_middleware(
         SessionMiddleware,
         secret_key=s.secret_key,
@@ -117,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(report.router)
     app.include_router(viz.router)
     app.include_router(admin.router)
+    app.include_router(ccx.router)
 
     # ── 5xx 告警中间件 ──
     @app.middleware("http")

@@ -152,6 +152,10 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.ymky_env == "production"
 
+    # ── AQ 前端合并接入（/api/ccx 可信头认证）─────────
+    # 由 aq 后端代理注入；留空则关闭 /api/ccx 可信头认证
+    ccx_internal_key: str = Field(default="", validation_alias="CCX_INTERNAL_KEY")
+
 
     @property
     def log_file(self) -> str:
