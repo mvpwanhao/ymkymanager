@@ -313,7 +313,7 @@ def submit_energy(request: Request, payload: dict = Body(...)) -> JSONResponse:
 
 @router.post("/entry/sales/submit")
 def submit_sales(request: Request, payload: dict = Body(...)) -> JSONResponse:
-    ident = _require(request, (ADMIN_ROLE, REPORTER_ROLE))
+    ident = _require(request, (ADMIN_ROLE,))
     if not ident:
         return _denied(request)
 
