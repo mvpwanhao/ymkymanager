@@ -18,21 +18,25 @@ from __future__ import annotations
 import logging
 import math
 import os
+import re
 from datetime import date
+from io import StringIO
 from typing import Any
 from urllib.parse import quote
 
 import pandas as pd
 from fastapi import APIRouter, Body, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from filelock import FileLock
 
 from app.config import get_settings
-from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP
+from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP, MINE_LIST
 from app.helpers import get_paths, safe_append, safe_replace, safe_replace_sales
+from app.utils import content_disposition_attachment
 from app.report_engine import (
     generate_nybb_report,
     generate_sjcl_report,
+    generate_brief_report,
     generate_weekly_report,
     read_sjcl_v2_daily_plans_from_template,
 )
@@ -54,8 +58,8 @@ from app.storage import (
     verify_energy_submission_visible,
     verify_sales_submission_visible,
 )
-from app.timeutil import get_weekly_range, now_str
-from app.viz_engine import build_viz_data
+from app.timeutil import get_weekly_range, now_str, today_beijing
+from app.viz_engine import build_viz_data, export_viz_excel
 
 router = APIRouter(prefix="/api/ccx", tags=["ccx"])
 
@@ -503,7 +507,7 @@ def stats(
     stat_year: str = "",
     stat_month: str = "",
 ) -> JSONResponse:
-    ident = _require(request)
+    ident = _require(request, (ADMIN_ROLE, VIEWER_ROLE))
     if not ident:
         return _denied(request)
     c_start = c_end = None
@@ -575,3 +579,125 @@ def report_download(request: Request, f: str = "") -> FileResponse | JSONRespons
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=p.name,
     )
+# ============================================================
+# 导出 / 状态 / 元数据 接口（供 aq 前端合并使用）
+# ============================================================
+
+@router.get("/export/viz", response_model=None)
+def ccx_export_viz(
+    request: Request,
+    period: str = "year",
+    start: str = "",
+    end: str = "",
+    stat_year: str = "",
+    stat_month: str = "",
+) -> Any:
+    ident = _require(request, (ADMIN_ROLE, VIEWER_ROLE))
+    if not ident:
+        return _denied(request)
+    c_start = c_end = None
+    if period == "custom" and start and end:
+        try:
+            c_start = date.fromisoformat(start)
+            c_end = date.fromisoformat(end)
+        except ValueError:
+            period = "year"
+    sy_int = int(stat_year) if stat_year.isdigit() else None
+    sm_str = stat_month if re.fullmatch(r"\d{4}-\d{2}", stat_month) else None
+    try:
+        blob, ascii_n, utf_n = export_viz_excel(
+            period=period,
+            custom_start=c_start,
+            custom_end=c_end,
+            stat_year=sy_int,
+            stat_month=sm_str,
+        )
+    except Exception as exc:
+        _log.warning("ccx.viz.export failed: %s", exc)
+        return _err(400, f"导出失败：{exc}")
+    cd = content_disposition_attachment(str(ascii_n), str(utf_n))
+    return Response(
+        content=blob,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": cd, "Cache-Control": "no-store"},
+    )
+
+
+@router.get("/export/ledger", response_model=None)
+def ccx_export_ledger(request: Request, kind: str = "all") -> Response:
+    ident = _require(request)
+    if not ident:
+        return _denied(request)
+    keys = [kind] if kind in LEDGER_PATH else list(LEDGER_PATH)
+    frames: list[pd.DataFrame] = []
+    for k in keys:
+        df = read_records(LEDGER_PATH[k]())
+        if df is None or df.empty:
+            continue
+        df = reorder_ledger_dataframe_for_table(LEDGER_TABLE[k], df)
+        df["_kind"] = k
+        frames.append(df)
+    if not frames:
+        return _err(400, "暂无数据")
+    out_df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
+    buf = StringIO()
+    out_df.to_csv(buf, index=False, encoding="utf-8-sig")
+    name = "ccx_ledger.csv"
+    return Response(
+        content=buf.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+@router.get("/ledger/mine-status")
+def ccx_ledger_mine_status(request: Request) -> JSONResponse:
+    ident = _require(request)
+    if not ident:
+        return _denied(request)
+    today_str = today_beijing().isoformat()
+    time_col = {"actual": "提交时间", "energy": "报送时间", "sales": "填报时间"}
+    out: dict[str, dict[str, bool]] = {}
+    for k in LEDGER_PATH:
+        df = read_records(LEDGER_PATH[k]())
+        mine_map: dict[str, bool] = {}
+        for mine_name in MINE_LIST:
+            submitted = False
+            if df is not None and not df.empty and "所属煤矿" in df.columns and time_col[k] in df.columns:
+                mine_rows = df[df["所属煤矿"].astype(str).str.strip() == mine_name]
+                submitted = bool(mine_rows[time_col[k]].astype(str).str.startswith(today_str).any())
+            mine_map[mine_name] = submitted
+        out[k] = mine_map
+    return _ok(out)
+
+
+@router.get("/entry/meta")
+def ccx_entry_meta(request: Request) -> JSONResponse:
+    ident = _require(request)
+    if not ident:
+        return _denied(request)
+    try:
+        plans = read_sjcl_v2_daily_plans_from_template(get_settings().sjcl_template_v2)
+    except Exception:
+        plans = {}
+    return _ok(
+        {
+            "mines": MINE_LIST,
+            "actual_reporter_map": ACTUAL_REPORTER_MAP,
+            "energy_reporter_map": ENERGY_REPORTER_MAP,
+            "actual_daily_plan_map": plans,
+        }
+    )
+
+
+@router.get("/report/brief")
+def ccx_report_brief(request: Request, start: str = "", end: str = "") -> JSONResponse:
+    ident = _require(request, (ADMIN_ROLE,))
+    if not ident:
+        return _denied(request)
+    if not start or not end:
+        return _err(400, "请提供 start 与 end")
+    brief_text, msg = generate_brief_report(start, end)
+    if not brief_text:
+        return _err(400, msg or "生成失败")
+    return _ok({"brief": brief_text}, message=msg or "已生成")
