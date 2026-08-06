@@ -30,9 +30,21 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from filelock import FileLock
 
 from app.config import get_settings
-from app.constants import ACTUAL_REPORTER_MAP, ENERGY_REPORTER_MAP, MINE_LIST
-from app.helpers import get_paths, safe_append, safe_replace, safe_replace_sales
-from app.utils import content_disposition_attachment
+from app.constants import (
+    ACTUAL_REPORTER_MAP,
+    ENERGY_REPORTER_MAP,
+    MINE_LIST,
+    REMOVED_MINE_KEYWORDS,
+)
+from app.helpers import (
+    get_paths,
+    safe_append,
+    safe_replace,
+    safe_replace_sales,
+    coerce_ledger_value,
+    safe_overwrite,
+)
+from app.utils import content_disposition_attachment, exclude_mines
 from app.report_engine import (
     generate_nybb_report,
     generate_sjcl_report,
@@ -476,7 +488,8 @@ def ledger(
     keys = [kind] if kind in LEDGER_PATH else list(LEDGER_PATH)
     out: list[dict] = []
     for k in keys:
-        df = read_records(LEDGER_PATH[k]())
+        raw = read_records(LEDGER_PATH[k]())
+        df = exclude_mines(raw) if raw is not None and not raw.empty else raw
         if df is None or df.empty:
             continue
         df = reorder_ledger_dataframe_for_table(LEDGER_TABLE[k], df)
@@ -487,8 +500,10 @@ def ledger(
             df = df[df[date_col].astype(str) >= start]
         if end:
             df = df[df[date_col].astype(str) <= end]
-        for rec in _row_dicts(df):
+        for idx, row in df.iterrows():
+            rec = {col: _clean_value(row[col]) for col in df.columns}
             rec["_kind"] = k
+            rec["_orig_idx"] = int(idx)
             out.append(rec)
 
     out.sort(
@@ -496,6 +511,80 @@ def ledger(
         reverse=True,
     )
     return _ok(out[:limit])
+
+
+@router.post("/ledger/save")
+def ledger_save(request: Request, payload: dict = Body(...)) -> JSONResponse:
+    """管理员保存台账编辑：按 kind 整表覆盖（更新/删除），与旧版 /admin/ledger/save 同语义。"""
+    ident = _require(request, (ADMIN_ROLE,))
+    if not ident:
+        return _denied(request)
+    kind = str(payload.get("kind") or "").strip()
+    if kind not in LEDGER_PATH:
+        return _err(400, "未知台账类型 kind，支持 actual / energy / sales")
+    updates = payload.get("updates") or []
+    deleted = payload.get("deleted") or []
+    p = LEDGER_PATH[kind]()
+    raw = read_records(p)
+    df_full = exclude_mines(raw) if raw is not None and not raw.empty else raw
+    if df_full is None or df_full.empty:
+        return _err(400, "无数据可保存")
+    full_index_set = set(df_full.index.tolist())
+    deleted_indices: set[int] = set()
+    for d in deleted:
+        try:
+            idx = int(d)
+        except (TypeError, ValueError):
+            continue
+        if idx in full_index_set:
+            deleted_indices.add(idx)
+    updated_idx_map: dict[int, dict] = {}
+    for u in updates:
+        try:
+            idx = int(u.get("orig_idx"))
+        except (TypeError, ValueError):
+            continue
+        if idx not in full_index_set or idx in deleted_indices:
+            continue
+        vals = u.get("values") or {}
+        row: dict = {}
+        for col in df_full.columns:
+            if col in vals:
+                row[col] = coerce_ledger_value(col, str(vals[col]))
+            else:
+                row[col] = df_full.loc[idx, col]
+        updated_idx_map[idx] = row
+    result_rows: list[dict] = []
+    for idx in df_full.index:
+        if idx in deleted_indices:
+            continue
+        if idx in updated_idx_map:
+            result_rows.append(updated_idx_map[idx])
+        else:
+            result_rows.append(df_full.loc[idx].to_dict())
+    if not result_rows:
+        new_df = pd.DataFrame(columns=df_full.columns)
+    else:
+        new_df = pd.DataFrame(result_rows)
+        for c in df_full.columns:
+            if c not in new_df.columns:
+                new_df[c] = None
+        new_df = new_df[[c for c in df_full.columns]]
+    excluded_rows = pd.DataFrame()
+    if raw is not None and not raw.empty and "所属煤矿" in raw.columns:
+        excl_mask = raw["所属煤矿"].astype(str).str.contains(
+            "|".join(REMOVED_MINE_KEYWORDS), na=False
+        )
+        excluded_rows = raw.loc[excl_mask].copy()
+    if not excluded_rows.empty:
+        for c in new_df.columns:
+            if c not in excluded_rows.columns:
+                excluded_rows[c] = None
+        save_df = pd.concat([new_df, excluded_rows[new_df.columns]], ignore_index=True)
+    else:
+        save_df = new_df
+    safe_overwrite(save_df, p)
+    return _ok({"saved": len(result_rows)}, message=f"已保存，当前共 {len(result_rows)} 行")
 
 
 @router.get("/stats")
